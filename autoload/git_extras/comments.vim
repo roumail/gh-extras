@@ -101,13 +101,9 @@ function! git_extras#comments#submit(number) abort
     endif
   endfor
   let l:cd = 'cd ' . shellescape(l:worktree) . ' && '
-  let l:number = a:number
+  let l:number = git_extras#pr_number(l:worktree, a:number)
   if empty(l:number)
-    let l:number = trim(system(l:cd . 'gh pr view --json number --jq .number'))
-    if v:shell_error
-      call s:error('no PR for this branch; pass its number')
-      return
-    endif
+    return
   endif
   let l:out = system(l:cd . 'gh api repos/{owner}/{repo}/pulls/' . l:number
         \ . '/reviews --input - --jq .html_url',

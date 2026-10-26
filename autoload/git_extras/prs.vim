@@ -18,40 +18,6 @@ function! s:error(msg) abort
   echohl None
 endfunction
 
-" Runs gh in the work tree, where it finds the repo; v:null on failure
-function! s:gh(worktree, args) abort
-  let l:out = system('cd ' . shellescape(a:worktree) . ' && gh ' . a:args)
-  if v:shell_error
-    call s:error('gh: ' . substitute(trim(l:out), '\n', ' ', 'g'))
-    return v:null
-  endif
-  return l:out
-endfunction
-
-" Seconds since the epoch for an ISO 8601 UTC time (2024-05-01T12:00:00Z)
-function! s:epoch(iso) abort
-  let l:p = matchlist(a:iso, '\v(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d):(\d\d)Z')
-  if empty(l:p)
-    return 0
-  endif
-  let [l:y, l:m, l:d] = [str2nr(l:p[1]), str2nr(l:p[2]), str2nr(l:p[3])]
-  " Days from civil (Howard Hinnant's algorithm)
-  let l:y -= l:m <= 2
-  let l:era = l:y / 400
-  let l:yoe = l:y - l:era * 400
-  let l:doy = (153 * ((l:m + 9) % 12) + 2) / 5 + l:d - 1
-  let l:days = l:era * 146097 + l:yoe * 365 + l:yoe / 4 - l:yoe / 100 + l:doy - 719468
-  return l:days * 86400 + str2nr(l:p[4]) * 3600 + str2nr(l:p[5]) * 60 + str2nr(l:p[6])
-endfunction
-
-" 5h / 3d / 2mo
-function! s:age(iso) abort
-  let l:hours = (localtime() - s:epoch(a:iso)) / 3600
-  return l:hours < 24 ? l:hours . 'h'
-        \ : l:hours < 24 * 60 ? (l:hours / 24) . 'd'
-        \ : (l:hours / 24 / 30) . 'mo'
-endfunction
-
 " login -> readable name, from g:git_extras_pr_authors (default
 " ~/.config/gh-pr-authors.txt), one name:login per line; {} without the file.
 " Keyed lowercase: logins aren't case-sensitive
@@ -76,7 +42,7 @@ function! s:line(pr, names) abort
   let l:author = type(a:pr.author) == v:t_dict ? a:pr.author.login : 'ghost'
   let l:name = empty(a:names) ? '' : printf('%-20.20s ', get(a:names, tolower(l:author), ''))
   return printf('#%-5d %-8s %-4s %-16.16s %s%-30.30s %s', a:pr.number, l:state,
-        \ s:age(a:pr.updatedAt), l:author, l:name, a:pr.headRefName, a:pr.title)
+        \ git_extras#age(a:pr.updatedAt), l:author, l:name, a:pr.headRefName, a:pr.title)
 endfunction
 
 " Column headings, in s:line()'s widths
@@ -87,7 +53,7 @@ function! s:heading(names) abort
 endfunction
 
 function! s:render() abort
-  let l:out = s:gh(b:git_extras_worktree, 'api graphql -F owner={owner} -F name={repo}'
+  let l:out = git_extras#gh(b:git_extras_worktree, 'api graphql -F owner={owner} -F name={repo}'
         \ . ' -F count=' . b:git_extras_count . ' -f query=' . shellescape(s:query))
   if l:out is v:null
     return
@@ -132,7 +98,7 @@ function! s:checkout() abort
     return
   endif
   let l:worktree = b:git_extras_worktree
-  if s:gh(l:worktree, 'pr checkout ' . l:number) is v:null
+  if git_extras#gh(l:worktree, 'pr checkout ' . l:number) is v:null
     return
   endif
   call git_extras#list_close()
@@ -144,6 +110,6 @@ endfunction
 function! s:browse() abort
   let l:number = s:number()
   if l:number
-    call s:gh(b:git_extras_worktree, 'pr view --web ' . l:number)
+    call git_extras#gh(b:git_extras_worktree, 'pr view --web ' . l:number)
   endif
 endfunction
