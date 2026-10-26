@@ -47,7 +47,9 @@ function! s:init() abort
     " Open PRs (default 20), latest first; <CR> checks one out
     command! -nargs=? PRs call git_extras#prs#open(<q-args>)
     " Review threads on the branch's PR (or number), to reply and resolve
-    command! -nargs=? Threads call git_extras#threads#open(<q-args>)
+    command! -nargs=? Thread call git_extras#threads#open(<q-args>)
+    " The review threads you're in, across the open PRs
+    command! Threads call git_extras#threads#all()
   endif
 
   nnoremap <Plug>(git-extras-diff-this) <Cmd>DiffThis<CR>

@@ -108,7 +108,7 @@ and so does a line outside the PR's diff.
 
 ## Review threads
 
-`:Threads [number]` lists the review threads on the branch's PR, or PR
+`:Thread [number]` lists the review threads on the branch's PR, or PR
 `number`, with their conversations, in a window at the bottom, so you can
 read and answer replies to your comments without the GitHub UI. Each thread
 is its file and line (`a.py:18-20`), its state, then each comment's author,
@@ -117,19 +117,24 @@ which only you see. The heading counts the open threads and those that are **you
 turn**: open, with someone else's comment last. Resolved threads are hidden
 until `u`. Doesn't need vim-review.
 
+`:Threads` is the same list for the threads you're in across the repo's open
+PRs: those with a comment of yours, and every thread on a PR you opened. Each
+PR's threads are under a line with its number, branch and title.
+
 | Key | What it does |
 | --- | --- |
-| `<CR>` | Open the file at the thread's line, in the window above. An **outdated** thread (its lines changed since) opens the file as of the commit it was made on, which must be fetched. |
+| `<CR>` | Open the file at the thread's line, in the window above: from the work tree when the PR is the branch checked out, else as of the PR's last commit. An **outdated** thread (its lines changed since) opens the file as of the commit it was made on. Commits must be fetched. |
 | `a` | Reply in a markdown buffer above the list. `:w` posts the reply right away, as GitHub's Reply does; writing again edits it; `:q!` before writing drops it. While you have a pending review on the PR, GitHub adds the reply to it instead, and says so. |
 | `x` | Resolve the thread, or unresolve a resolved one. |
 | `u` | Show or hide resolved threads. |
-| `o` | Open the PR in the browser. |
+| `o` | Open the thread's PR in the browser. |
 | `r` | Refresh. |
 | `q` | Close (`:q` too). |
 
-The first 100 threads and the first 100 comments of each are shown. Comments
-on the PR's conversation, not on a line, aren't. Defined only when `gh` is
-installed.
+The first 100 threads of a PR are shown, with the first 100 comments of each;
+`:Threads` looks at the 50 most recently updated open PRs, and the first 50
+comments of a thread. Comments on the PR's conversation, not on a line, aren't
+threads and aren't shown. Defined only when `gh` is installed.
 
 No keys are bound; bind the `<Plug>` mappings yourself, for example:
 
@@ -141,7 +146,7 @@ nmap <leader>cl <Plug>(git-extras-branch-commits)
 ## Install
 
 Requires vim-fugitive; without it the plugin warns once and defines nothing.
-`:PRs`, `:Threads` and `:CommentsSubmit` also need `gh`, and are left out without it.
+`:PRs`, `:Thread`, `:Threads` and `:CommentsSubmit` also need `gh`, and are left out without it.
 Review comments need vim-review.
 
 ```vim
