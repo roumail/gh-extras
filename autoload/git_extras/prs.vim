@@ -53,16 +53,16 @@ function! s:age(iso) abort
 endfunction
 
 " login -> readable name, from g:git_extras_pr_authors (default
-" ~/.config/gh-pr-authors.txt), one login:name per line; {} without the file.
+" ~/.config/gh-pr-authors.txt), one name:login per line; {} without the file.
 " Keyed lowercase: logins aren't case-sensitive
 function! s:authors() abort
   let l:file = expand(get(g:, 'git_extras_pr_authors', '~/.config/gh-pr-authors.txt'))
   let l:names = {}
   if filereadable(l:file)
     for l:line in readfile(l:file)
-      let l:m = matchlist(l:line, '^\s*\([^:#[:space:]]\+\)\s*:\s*\(.\{-}\)\s*$')
-      if !empty(l:m) && !empty(l:m[2])
-        let l:names[tolower(l:m[1])] = l:m[2]
+      let l:m = matchlist(l:line, '^\s*\([^:#[:space:]][^:]\{-}\)\s*:\s*\([^:[:space:]]\+\)\s*$')
+      if !empty(l:m)
+        let l:names[tolower(l:m[2])] = l:m[1]
       endif
     endfor
   endif

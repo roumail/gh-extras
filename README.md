@@ -63,8 +63,9 @@ number, review state (`draft`, `approved`, `changes`, `review`, or `-`), age,
 author, branch and title.
 
 Authors' logins can get a readable name beside them, from a file of
-`login:name` lines (logins in any case), read on each refresh. The column is
-left out when the file doesn't exist, and blank for logins it doesn't name.
+`name:login` lines (`Mira:mira-dev`, logins in any case), read on each refresh.
+The column is left out when the file doesn't exist, and blank for logins it
+doesn't name.
 
 ```vim
 let g:git_extras_pr_authors = '~/.config/gh-pr-authors.txt'  " the default
