@@ -1,9 +1,9 @@
 " git-extras: additions to vim-fugitive. Review a branch against the repo's
 " default branch (main/master), keeping each review as a comparison, stage
-" hunks in a vertical diff, and list open PRs. With roumail/vim-review, its
-" review comments go on fugitive diffs, are saved per branch and post to the
-" PR. Commands and <Plug> mappings only; no keys are bound here. Requires
-" tpope/vim-fugitive; the GitHub commands need gh.
+" hunks in a vertical diff, list open PRs and answer their review threads.
+" With roumail/vim-review, its review comments go on fugitive diffs, are saved
+" per branch and post to the PR. Commands and <Plug> mappings only; no keys
+" are bound here. Requires tpope/vim-fugitive; the GitHub commands need gh.
 if exists('g:loaded_git_extras')
   finish
 endif
@@ -46,6 +46,8 @@ function! s:init() abort
   if executable('gh')
     " Open PRs (default 20), latest first; <CR> checks one out
     command! -nargs=? PRs call git_extras#prs#open(<q-args>)
+    " Review threads on the branch's PR (or number), to reply and resolve
+    command! -nargs=? Threads call git_extras#threads#open(<q-args>)
   endif
 
   nnoremap <Plug>(git-extras-diff-this) <Cmd>DiffThis<CR>

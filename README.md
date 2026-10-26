@@ -1,10 +1,10 @@
 # git-extras
 
 Additions to [vim-fugitive](https://github.com/tpope/vim-fugitive): review a
-branch the way a pull request shows it, stage hunks in a vertical diff, and list
-open pull requests. With [vim-review](https://github.com/roumail/vim-review),
-its review comments go on the branch, are saved per branch and post to the pull
-request.
+branch the way a pull request shows it, stage hunks in a vertical diff, list
+open pull requests and answer their review threads. With
+[vim-review](https://github.com/roumail/vim-review), its review comments go on
+the branch, are saved per branch and post to the pull request.
 
 "Main" is the repo's default branch: `origin/HEAD`, else `origin/main`,
 `origin/master`, `main` or `master`, resolved per repo when a command runs.
@@ -106,6 +106,31 @@ comments stay on that commit, as on GitHub. Comments on a file changed since
 that doesn't contain `HEAD` (another branch checked out) rejects the review,
 and so does a line outside the PR's diff.
 
+## Review threads
+
+`:Threads [number]` lists the review threads on the branch's PR, or PR
+`number`, with their conversations, in a window at the bottom, so you can
+read and answer replies to your comments without the GitHub UI. Each thread
+is its file and line (`a.py:18-20`), its state, then each comment's author,
+age and text; `pending` marks a comment of a review you haven't submitted,
+which only you see. The heading counts the open threads and those that are **your
+turn**: open, with someone else's comment last. Resolved threads are hidden
+until `u`. Doesn't need vim-review.
+
+| Key | What it does |
+| --- | --- |
+| `<CR>` | Open the file at the thread's line, in the window above. An **outdated** thread (its lines changed since) opens the file as of the commit it was made on, which must be fetched. |
+| `a` | Reply in a markdown buffer above the list. `:w` posts the reply right away, as GitHub's Reply does; writing again edits it; `:q!` before writing drops it. While you have a pending review on the PR, GitHub adds the reply to it instead, and says so. |
+| `x` | Resolve the thread, or unresolve a resolved one. |
+| `u` | Show or hide resolved threads. |
+| `o` | Open the PR in the browser. |
+| `r` | Refresh. |
+| `q` | Close (`:q` too). |
+
+The first 100 threads and the first 100 comments of each are shown. Comments
+on the PR's conversation, not on a line, aren't. Defined only when `gh` is
+installed.
+
 No keys are bound; bind the `<Plug>` mappings yourself, for example:
 
 ```vim
@@ -116,7 +141,7 @@ nmap <leader>cl <Plug>(git-extras-branch-commits)
 ## Install
 
 Requires vim-fugitive; without it the plugin warns once and defines nothing.
-`:PRs` and `:CommentsSubmit` also need `gh`, and are left out without it.
+`:PRs`, `:Threads` and `:CommentsSubmit` also need `gh`, and are left out without it.
 Review comments need vim-review.
 
 ```vim
