@@ -74,6 +74,7 @@ let g:git_extras_pr_authors = '~/.config/gh-pr-authors.txt'  " the default
 | Key | What it does |
 | --- | --- |
 | `<CR>` | `gh pr checkout` the PR and close the list. `:BranchDiff` / `:BranchCommits` review it. |
+| `t` | Its review threads, as `:Thread` (see below). |
 | `o` | Open the PR in the browser. |
 | `r` | Refresh. |
 | `q` | Close (`:q` too). |

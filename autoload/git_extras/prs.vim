@@ -62,7 +62,7 @@ function! s:render() abort
   let l:names = s:authors()
   setlocal modifiable
   silent %delete _
-  call setline(1, ['Open PRs (' . len(l:prs) . ')  <CR> checkout  o browser  r refresh  q close',
+  call setline(1, ['Open PRs (' . len(l:prs) . ')  <CR> checkout  t threads  o browser  r refresh  q close',
         \ s:heading(l:names)] + map(copy(l:prs), 's:line(v:val, l:names)'))
   setlocal nomodifiable nomodified
   call git_extras#list_fit()
@@ -82,6 +82,7 @@ function! git_extras#prs#open(count) abort
   let b:git_extras_worktree = l:worktree
   let b:git_extras_count = empty(a:count) ? 20 : a:count
   nnoremap <buffer><silent> <CR> <Cmd>call <SID>checkout()<CR>
+  nnoremap <buffer><silent> t <Cmd>call <SID>threads()<CR>
   nnoremap <buffer><silent> o <Cmd>call <SID>browse()<CR>
   nnoremap <buffer><silent> r <Cmd>call <SID>render()<CR>
   call s:render()
@@ -105,6 +106,13 @@ function! s:checkout() abort
   checktime
   echo 'Checked out #' . l:number . ' (:BranchDiff, :BranchCommits to review)'
   call git_extras#comments#check()
+endfunction
+
+function! s:threads() abort
+  let l:number = s:number()
+  if l:number
+    call git_extras#threads#open(l:number, b:git_extras_worktree)
+  endif
 endfunction
 
 function! s:browse() abort

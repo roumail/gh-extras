@@ -160,8 +160,9 @@ function! s:render() abort
   call setpos('.', l:pos)
 endfunction
 
-function! git_extras#threads#open(number) abort
-  let l:worktree = s:worktree(':Thread')
+" From :PRs, its work tree: fugitive doesn't know it in that buffer
+function! git_extras#threads#open(number, ...) abort
+  let l:worktree = a:0 ? a:1 : s:worktree(':Thread')
   if empty(l:worktree)
     return
   endif
@@ -192,7 +193,7 @@ function! s:open(worktree, kind, number) abort
   if l:repo is v:null
     return
   endif
-  let l:gitdir = FugitiveGitDir()
+  let l:gitdir = FugitiveExtractGitDir(a:worktree)
   call git_extras#list_open('git-extras://' . a:kind . '/' . fnamemodify(a:worktree, ':t'))
   let b:git_extras_worktree = a:worktree
   let b:git_extras_gitdir = l:gitdir
