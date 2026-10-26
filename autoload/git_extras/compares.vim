@@ -19,7 +19,6 @@ function! s:key(compare) abort
   return {'dir': a:compare.dir, 'name': a:compare.name}
 endfunction
 
-" The numbers of the tabs that show a comparison
 function! s:tabs(compare) abort
   let l:key = s:key(a:compare)
   return map(filter(gettabinfo(),
@@ -57,8 +56,7 @@ function! git_extras#compares#open(dir, name, base, head) abort
 endfunction
 
 " The comparisons in the repo at git dir (default: the current buffer's), newest
-" first,
-" each with the tabs still showing it: [{name, base, head, files, time,
+" first, each with the tabs still showing it: [{name, base, head, files, time,
 " tabs}]
 function! git_extras#compares#list(...) abort
   let l:dir = a:0 ? a:1 : FugitiveGitDir()

@@ -118,7 +118,6 @@ function! git_extras#branch_commits(args) abort
   endif
 endfunction
 
-" Local and remote branches, most recent commit first
 function! git_extras#complete_branch(lead, cmdline, pos) abort
   let l:refs = s:git(['for-each-ref', '--sort=-committerdate',
         \ '--format=%(refname)', 'refs/heads', 'refs/remotes'])
@@ -152,7 +151,6 @@ function! git_extras#list_open(name) abort
   nnoremap <buffer><silent> q <Cmd>call git_extras#list_close()<CR>
 endfunction
 
-" Its window fits its lines, up to 15
 function! git_extras#list_fit() abort
   execute 'resize' min([line('$'), 15])
 endfunction
