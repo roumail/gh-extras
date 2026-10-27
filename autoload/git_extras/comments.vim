@@ -90,6 +90,56 @@ function! s:review_commit(cd, number, head, comments) abort
   return l:tip
 endfunction
 
+" The comments GitHub would reject, as path:line labels: their lines aren't
+" in a hunk of the PR's diff at commit (merge-base with its base..commit, 3
+" lines of context, as GitHub shows it), or a range spans two hunks. v:null
+" (after an error) when that diff can't be read.
+function! s:outside_diff(worktree, number, commit, comments) abort
+  let l:base = git_extras#gh(a:worktree, 'api repos/{owner}/{repo}/pulls/'
+        \ . a:number . ' --jq .base.sha')
+  if l:base is v:null
+    return v:null
+  endif
+  let l:base = trim(l:base)
+  if FugitiveExecute(['cat-file', '-e', l:base . '^{commit}']).exit_status
+    let l:remotes = FugitiveExecute(['remote']).stdout
+    call FugitiveExecute(['fetch', index(l:remotes, 'origin') >= 0 ? 'origin'
+          \ : get(l:remotes, 0, ''), l:base])
+  endif
+  let l:fork = FugitiveExecute(['merge-base', l:base, a:commit])
+  let l:diff = l:fork.exit_status ? l:fork : FugitiveExecute(['diff', '-U3',
+        \ '--no-color', '--no-ext-diff', l:fork.stdout[0], a:commit, '--']
+        \ + uniq(sort(map(copy(a:comments), 'v:val.path'))))
+  if l:diff.exit_status
+    call s:error('git: cannot read the diff of PR ' . a:number . ' at ' . a:commit[:6])
+    return v:null
+  endif
+  " {path: [[first, last], ...]}, the new side's lines of each hunk
+  let l:hunks = {}
+  let l:path = ''
+  for l:line in l:diff.stdout
+    if l:line =~# '^+++ '
+      let l:path = l:line =~# '^+++ b/' ? l:line[6:] : ''
+      let l:hunks[l:path] = []
+    else
+      let l:m = matchlist(l:line, '^@@ -\S\+ +\(\d\+\)\%(,\(\d\+\)\)\= @@')
+      if !empty(l:m) && !empty(l:path)
+        let l:first = str2nr(l:m[1])
+        call add(l:hunks[l:path], [l:first, l:first + (empty(l:m[2]) ? 1 : str2nr(l:m[2])) - 1])
+      endif
+    endif
+  endfor
+  let l:outside = []
+  for l:c in a:comments
+    let l:start = get(l:c, 'start_line', l:c.line)
+    if empty(filter(copy(get(l:hunks, l:c.path, [])),
+          \ 'v:val[0] <= l:start && l:c.line <= v:val[1]'))
+      call add(l:outside, l:c.path . ':' . (l:start == l:c.line ? '' : l:start . '-') . l:c.line)
+    endif
+  endfor
+  return l:outside
+endfunction
+
 " Posts the comments as one pending review of HEAD on a PR (the current
 " branch's, or number), so you can check them on GitHub and submit there or
 " with gh.
@@ -143,6 +193,14 @@ function! git_extras#comments#submit(number) abort
   endif
   let l:commit = s:review_commit(l:cd, l:number, l:head.stdout[0], l:comments)
   if empty(l:commit)
+    return
+  endif
+  let l:outside = s:outside_diff(l:worktree, l:number, l:commit, l:comments)
+  if l:outside is v:null
+    return
+  elseif !empty(l:outside)
+    call s:error(len(l:outside) . ' comments on lines outside the PR''s diff, which GitHub rejects: '
+          \ . join(l:outside, ', ') . '; move them into a changed hunk, or drop them (dd in :Comments)')
     return
   endif
   let l:out = system(l:cd . 'gh api repos/{owner}/{repo}/pulls/' . l:number
