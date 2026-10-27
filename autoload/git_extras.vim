@@ -214,7 +214,13 @@ function! git_extras#list_close() abort
   endif
 endfunction
 
-function! git_extras#diff_close() abort
+" The comparison name, or the one this tab is in; else the fugitive windows
+" in this tab, then diff mode off
+function! git_extras#diff_close(name) abort
+  if !empty(a:name) || has_key(t:, 'git_extras_compare')
+    call git_extras#compares#close(a:name)
+    return
+  endif
   for l:win in reverse(range(1, winnr('$')))
     if bufname(winbufnr(l:win)) =~# '^fugitive://' && winnr('$') > 1
       execute l:win . 'close'

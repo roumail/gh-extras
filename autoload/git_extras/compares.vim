@@ -78,15 +78,15 @@ function! git_extras#compares#remove(dir, name) abort
   endfor
 endfunction
 
-" Closes the tabs of the comparison name in the current buffer's repo; from
-" one of them, goes back to the window :BranchDiff was run from. It stays
-" listed, to open again from :Compares.
+" Closes the tabs of the comparison name in the current buffer's repo (''
+" for this tab's); from one of them, goes back to the window :BranchDiff was
+" run from. It stays listed, to open again from :Compares.
 function! git_extras#compares#close(name) abort
-  let l:dir = FugitiveGitDir()
-  let l:compare = get(filter(copy(s:compares),
-        \ 'v:val.dir ==# l:dir && v:val.name ==# a:name'), 0, {})
+  let l:key = empty(a:name) ? get(t:, 'git_extras_compare', {})
+        \ : {'dir': FugitiveGitDir(), 'name': a:name}
+  let l:compare = get(filter(copy(s:compares), 's:key(v:val) ==# l:key'), 0, {})
   if empty(l:compare)
-    call s:error('no comparison ' . a:name . ' in :Compares')
+    call s:error('no comparison ' . get(l:key, 'name', '') . ' in :Compares')
     return
   endif
   let l:tabs = s:tabs(l:compare)
@@ -117,7 +117,7 @@ function! git_extras#compares#close(name) abort
   endif
 endfunction
 
-" The comparison names in the current buffer's repo, for :CompareClose <Tab>
+" The comparison names in the current buffer's repo, for :DiffClose <Tab>
 function! git_extras#compares#complete(lead, cmdline, pos) abort
   return filter(map(git_extras#compares#list(), 'v:val.name'),
         \ 'stridx(v:val, a:lead) == 0')

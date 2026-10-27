@@ -35,11 +35,10 @@ function! s:init() abort
   " Commits on the branch that main doesn't have; further args go to git log
   command! -nargs=* -complete=customlist,git_extras#complete_commits
         \ BranchCommits call git_extras#branch_commits(<q-args>)
-  " Close the fugitive side of the diff in this tab and turn diff mode off
-  command! DiffClose call git_extras#diff_close()
-  " Close the tabs of a :BranchDiff comparison; it stays in :Compares
-  command! -nargs=1 -complete=customlist,git_extras#compares#complete
-        \ CompareClose call git_extras#compares#close(<q-args>)
+  " Close the :BranchDiff comparison (name, else this tab's), which stays in
+  " :Compares; outside one, the fugitive side of the diff in this tab
+  command! -nargs=? -complete=customlist,git_extras#compares#complete
+        \ DiffClose call git_extras#diff_close(<q-args>)
   " The :BranchDiff comparisons of this session; <CR> reopens one, d removes
   command! Compares call git_extras#compares#show()
 
