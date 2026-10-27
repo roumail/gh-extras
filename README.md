@@ -103,9 +103,10 @@ git:
 The review is of the commit you read: `HEAD`, so check the PR out (`:PRs`,
 `<CR>`) to review it. If the author pushes more before you submit, the
 comments stay on that commit, as on GitHub. Comments on a file changed since
-`HEAD` are refused, since their lines aren't its; commit or stash first. A PR
-that doesn't contain `HEAD` (another branch checked out) rejects the review,
-and so does a line outside the PR's diff.
+`HEAD` are refused, since their lines aren't its; commit or stash first. When
+`HEAD` isn't in the PR (unpushed, or rebased), the review is of the PR's head
+instead, if the commented files are the same there, else it is refused. A line
+outside the PR's diff is rejected by GitHub.
 
 ## Review threads
 

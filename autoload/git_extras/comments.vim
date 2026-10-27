@@ -54,6 +54,42 @@ function! git_extras#comments#check() abort
   endif
 endfunction
 
+" The commit to review: head when it is one of the PR's, so the comments
+" stay on it after newer pushes. GitHub rejects a commit the PR doesn't have
+" (unpushed or rebased), so then the PR's head, if the commented files are
+" the same there. '' (after an error) otherwise.
+function! s:review_commit(cd, number, head, comments) abort
+  let l:commits = systemlist(a:cd . 'gh api --paginate repos/{owner}/{repo}/pulls/'
+        \ . a:number . '/commits --jq ".[].sha"')
+  if v:shell_error || empty(l:commits)
+    call s:error('gh: ' . substitute(join(l:commits, ' '), '\n', ' ', 'g'))
+    return ''
+  endif
+  if index(l:commits, a:head) >= 0
+    return a:head
+  endif
+  let l:tip = l:commits[-1]
+  let l:paths = uniq(sort(map(copy(a:comments), 'v:val.path')))
+  if FugitiveExecute(['cat-file', '-e', l:tip . '^{commit}']).exit_status
+    let l:remotes = FugitiveExecute(['remote']).stdout
+    let l:remote = index(l:remotes, 'origin') >= 0 ? 'origin' : get(l:remotes, 0, '')
+    call FugitiveExecute(['fetch', l:remote, 'pull/' . a:number . '/head'])
+  endif
+  let l:diff = FugitiveExecute(['diff', '--name-only', l:tip, a:head, '--'] + l:paths)
+  if l:diff.exit_status
+    call s:error('git: cannot compare HEAD with the PR head ' . l:tip[:6])
+    return ''
+  endif
+  call filter(l:diff.stdout, '!empty(v:val)')
+  if !empty(l:diff.stdout)
+    call s:error('HEAD ' . a:head[:6] . ' is not in PR ' . a:number . ', and its head '
+          \ . l:tip[:6] . ' has these commented files different: '
+          \ . join(l:diff.stdout, ', ') . '; push, or check out the PR')
+    return ''
+  endif
+  return l:tip
+endfunction
+
 " Posts the comments as one pending review of HEAD on a PR (the current
 " branch's, or number), so you can check them on GitHub and submit there or
 " with gh.
@@ -105,13 +141,17 @@ function! git_extras#comments#submit(number) abort
   if empty(l:number)
     return
   endif
+  let l:commit = s:review_commit(l:cd, l:number, l:head.stdout[0], l:comments)
+  if empty(l:commit)
+    return
+  endif
   let l:out = system(l:cd . 'gh api repos/{owner}/{repo}/pulls/' . l:number
         \ . '/reviews --input - --jq .html_url',
-        \ json_encode({'commit_id': l:head.stdout[0], 'comments': l:comments}))
+        \ json_encode({'commit_id': l:commit, 'comments': l:comments}))
   if v:shell_error
     call s:error('gh: ' . substitute(trim(l:out), '\n', ' ', 'g'))
     return
   endif
-  echo 'Pending review of ' . l:head.stdout[0][:6] . ' with ' . len(l:comments)
+  echo 'Pending review of ' . l:commit[:6] . ' with ' . len(l:comments)
         \ . ' comments: ' . trim(l:out)
 endfunction
