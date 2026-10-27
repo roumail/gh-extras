@@ -35,23 +35,41 @@ function! s:authors() abort
   return l:names
 endfunction
 
-" The name column is there only when the file names someone
-function! s:line(pr, names) abort
-  let l:state = a:pr.isDraft ? 'draft'
+" Who opened it: their name from the authors file, else the login
+function! s:who(pr, names) abort
+  let l:login = type(a:pr.author) == v:t_dict ? a:pr.author.login : 'ghost'
+  return get(a:names, tolower(l:login), l:login)
+endfunction
+
+function! s:state(pr) abort
+  return a:pr.isDraft ? 'draft'
         \ : get(s:states, type(a:pr.reviewDecision) == v:t_string ? a:pr.reviewDecision : '', '-')
-  let l:author = type(a:pr.author) == v:t_dict ? a:pr.author.login : 'ghost'
-  let l:name = empty(a:names) ? '' : printf('%-20.20s ', get(a:names, tolower(l:author), ''))
-  return printf('#%-5d %-8s %-4s %-16.16s %s%-30.30s %s', a:pr.number, l:state,
-        \ git_extras#age(a:pr.updatedAt), l:author, l:name, a:pr.headRefName, a:pr.title)
 endfunction
 
-" Column headings, in s:line()'s widths
-function! s:heading(names) abort
-  let l:name = empty(a:names) ? '' : printf('%-20s ', 'name')
-  return printf('%-6s %-8s %-4s %-16s %s%-30s %s', '#', 'state', 'age', 'author',
-        \ l:name, 'branch', 'title')
+" Cut or padded to width screen cells: printf counts bytes, and names aren't
+" all ASCII
+function! s:pad(text, width) abort
+  let l:text = a:text
+  while strdisplaywidth(l:text) > a:width
+    let l:text = strcharpart(l:text, 0, strchars(l:text) - 1)
+  endwhile
+  return l:text . repeat(' ', a:width - strdisplaywidth(l:text))
 endfunction
 
+" Who, title and branch are what you filter on, so they come first after the
+" number; their widths fit the fetched PRs, so the columns stay put while
+" filtering. Age is last: the order already tells it
+function! s:format(widths, num, who, title, branch, state, age) abort
+  return printf('%-6s %s  %s  %s  %-8s %s', a:num, s:pad(a:who, a:widths[0]),
+        \ s:pad(a:title, a:widths[1]), s:pad(a:branch, a:widths[2]), a:state, a:age)
+endfunction
+
+function! s:line(pr, widths) abort
+  return s:format(a:widths, '#' . a:pr.number, a:pr._who, a:pr.title,
+        \ a:pr.headRefName, s:state(a:pr), git_extras#age(a:pr.updatedAt))
+endfunction
+
+" Fetches the PRs into b:git_extras_prs, then draws them through the filter
 function! s:render() abort
   let l:out = git_extras#gh(b:git_extras_worktree, 'api graphql -F owner={owner} -F name={repo}'
         \ . ' -F count=' . b:git_extras_count . ' -f query=' . shellescape(s:query))
@@ -60,13 +78,76 @@ function! s:render() abort
   endif
   let l:prs = json_decode(l:out).data.repository.pullRequests.nodes
   let l:names = s:authors()
+  for l:pr in l:prs
+    let l:pr._who = s:who(l:pr, l:names)
+  endfor
+  let b:git_extras_prs = l:prs
+  let b:git_extras_widths = [
+        \ min([20, max([3] + map(copy(l:prs), 'strdisplaywidth(v:val._who)'))]),
+        \ min([60, max([5] + map(copy(l:prs), 'strdisplaywidth(v:val.title)'))]),
+        \ min([30, max([6] + map(copy(l:prs), 'strdisplaywidth(v:val.headRefName)'))])]
+  call s:draw()
+  call cursor(3, 1)
+endfunction
+
+" The fetched PRs that fuzzy-match b:git_extras_filter on who, title and branch, best
+" first (as fzf: space-separated words each match); all of them, latest first,
+" without a filter
+function! s:filtered() abort
+  if empty(b:git_extras_filter)
+    return b:git_extras_prs
+  endif
+  return matchfuzzy(b:git_extras_prs, b:git_extras_filter,
+        \ {'text_cb': {pr -> pr._who . ' ' . pr.title . ' ' . pr.headRefName}})
+endfunction
+
+function! s:draw() abort
+  let l:prs = s:filtered()
+  let l:count = empty(b:git_extras_filter) ? len(l:prs)
+        \ : len(l:prs) . '/' . len(b:git_extras_prs) . ' matching ' . string(b:git_extras_filter)
   setlocal modifiable
   silent %delete _
-  call setline(1, ['Open PRs (' . len(l:prs) . ')  <CR> checkout  t threads  o browser  r refresh  q close',
-        \ s:heading(l:names)] + map(copy(l:prs), 's:line(v:val, l:names)'))
+  call setline(1, ['Open PRs (' . l:count . ')  <CR> checkout  / filter  t threads  o browser  r refresh  q close',
+        \ s:format(b:git_extras_widths, '#', 'who', 'title', 'branch', 'state', 'age')]
+        \ + map(copy(l:prs), 's:line(v:val, b:git_extras_widths)'))
   setlocal nomodifiable nomodified
   call git_extras#list_fit()
-  call cursor(3, 1)
+endfunction
+
+" Filters as you type: <CR> keeps the filter (empty shows them all), <Esc>
+" puts the previous one back; <BS>, <C-w> and <C-u> edit it
+function! s:filter() abort
+  let l:before = b:git_extras_filter
+  while 1
+    call s:draw()
+    call cursor(3, 1)
+    redraw
+    echo '/' . b:git_extras_filter
+    try
+      let l:key = getchar()
+    catch /^Vim:Interrupt$/
+      let l:key = "\<Esc>"
+    endtry
+    let l:key = type(l:key) == v:t_number ? nr2char(l:key) : l:key
+    if l:key ==# "\<CR>"
+      break
+    elseif l:key ==# "\<Esc>"
+      let b:git_extras_filter = l:before
+      call s:draw()
+      call cursor(3, 1)
+      break
+    elseif l:key ==# "\<BS>" || l:key ==# "\<C-h>"
+      let b:git_extras_filter = strcharpart(b:git_extras_filter, 0, strchars(b:git_extras_filter) - 1)
+    elseif l:key ==# "\<C-w>"
+      let b:git_extras_filter = substitute(b:git_extras_filter, '\S*\s*$', '', '')
+    elseif l:key ==# "\<C-u>"
+      let b:git_extras_filter = ''
+    elseif l:key =~# '^\p$'
+      let b:git_extras_filter .= l:key
+    endif
+  endwhile
+  redraw
+  echo ''
 endfunction
 
 function! git_extras#prs#open(count) abort
@@ -81,7 +162,9 @@ function! git_extras#prs#open(count) abort
   call git_extras#list_open('git-extras://prs/' . fnamemodify(l:worktree, ':t'))
   let b:git_extras_worktree = l:worktree
   let b:git_extras_count = empty(a:count) ? 20 : a:count
+  let b:git_extras_filter = ''
   nnoremap <buffer><silent> <CR> <Cmd>call <SID>checkout()<CR>
+  nnoremap <buffer><silent> / <Cmd>call <SID>filter()<CR>
   nnoremap <buffer><silent> t <Cmd>call <SID>threads()<CR>
   nnoremap <buffer><silent> o <Cmd>call <SID>browse()<CR>
   nnoremap <buffer><silent> r <Cmd>call <SID>render()<CR>

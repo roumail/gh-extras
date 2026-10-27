@@ -58,13 +58,11 @@ and age.
 
 `:PRs [count]` lists the repo's open pull requests, most recently updated first
 (default 20), in a window at the bottom, under a line of column headings:
-number, review state (`draft`, `approved`, `changes`, `review`, or `-`), age,
-author, branch and title.
+number, who opened it, title, branch, review state (`draft`, `approved`,
+`changes`, `review`, or `-`) and age.
 
-Authors' logins can get a readable name beside them, from a file of
+Who opened it is their login, or a readable name for it from a file of
 `name:login` lines (`Mira:mira-dev`, logins in any case), read on each refresh.
-The column is left out when the file doesn't exist, and blank for logins it
-doesn't name.
 
 ```vim
 let g:git_extras_pr_authors = '~/.config/gh-pr-authors.txt'  " the default
@@ -73,6 +71,7 @@ let g:git_extras_pr_authors = '~/.config/gh-pr-authors.txt'  " the default
 | Key | What it does |
 | --- | --- |
 | `<CR>` | `gh pr checkout` the PR and close the list. `:BranchDiff` / `:BranchCommits` review it. |
+| `/` | Filter as you type, fuzzily on who, title and branch (space-separated words each match, best match first). `<CR>` keeps the filter, `<Esc>` puts the last one back, `<C-u>` clears it. It stays on `r`. |
 | `t` | Its review threads, as `:Thread` (see below). |
 | `o` | Open the PR in the browser. |
 | `r` | Refresh. |
