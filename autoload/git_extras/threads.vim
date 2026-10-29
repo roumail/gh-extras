@@ -79,6 +79,9 @@ function! s:mine(thread, pr, me) abort
         \ || !empty(filter(copy(a:thread.comments.nodes), 's:login(v:val.author) ==? a:me'))
 endfunction
 
+" A thread is one line, its file, line and state, then the number of comments
+" and the start of the last; = opens it to the conversation, as fugitive's =
+" does a file's diff
 function! s:lines(thread, me) abort
   let l:place = s:place(a:thread)
   let l:state = a:thread.isResolved ? 'resolved'
@@ -86,8 +89,14 @@ function! s:lines(thread, me) abort
   if s:outdated(a:thread)
     let l:state .= ', outdated'
   endif
-  let l:lines = [a:thread.path . (empty(l:place.range) ? '' : ':' . l:place.range)
-        \ . '  ' . l:state]
+  let l:head = a:thread.path . (empty(l:place.range) ? '' : ':' . l:place.range)
+        \ . '  ' . l:state
+  if !has_key(b:git_extras_open, a:thread.id)
+    let l:last = a:thread.comments.nodes[-1]
+    return [l:head . '  (' . len(a:thread.comments.nodes) . ')  ' . s:login(l:last.author)
+          \ . ': ' . get(split(l:last.body, '\r\=\n'), 0, '')]
+  endif
+  let l:lines = [l:head]
   for l:c in a:thread.comments.nodes
     " Only you see a pending comment, until you submit its review
     call add(l:lines, '    ' . s:login(l:c.author) . ' (' . git_extras#age(l:c.createdAt)
@@ -97,6 +106,7 @@ function! s:lines(thread, me) abort
   return l:lines
 endfunction
 
+" Fetches the threads into b:git_extras_fetched, then draws them.
 " b:git_extras_number is :Thread's PR, 0 for :Threads, which puts each PR's
 " threads under a line of its own
 function! s:render() abort
@@ -113,20 +123,29 @@ function! s:render() abort
   let l:repo = l:data.data.repository
   let l:prs = l:number ? [l:repo.pullRequest] : l:repo.pullRequests.nodes
   let l:branch = FugitiveHead(0, b:git_extras_gitdir)
+  for l:pr in l:prs
+    if !l:number
+      call filter(l:pr.reviewThreads.nodes, 's:mine(v:val, l:pr, l:me)')
+    endif
+    for l:t in l:pr.reviewThreads.nodes
+      let l:t.pr = l:pr.number
+      let l:t.head = l:pr.headRefName ==# l:branch ? '' : l:pr.headRefOid
+    endfor
+  endfor
+  let b:git_extras_fetched = {'me': l:me, 'prs': l:prs}
+  call s:draw()
+endfunction
+
+function! s:draw() abort
+  let l:number = b:git_extras_number
+  let l:me = b:git_extras_fetched.me
   let b:git_extras_threads = []
   " The thread on each line, by index into b:git_extras_threads
   let b:git_extras_line_thread = [-1]
   let l:lines = []
   let [l:open, l:waiting] = [0, 0]
-  for l:pr in l:prs
+  for l:pr in b:git_extras_fetched.prs
     let l:all = l:pr.reviewThreads.nodes
-    if !l:number
-      call filter(l:all, 's:mine(v:val, l:pr, l:me)')
-    endif
-    for l:t in l:all
-      let l:t.pr = l:pr.number
-      let l:t.head = l:pr.headRefName ==# l:branch ? '' : l:pr.headRefOid
-    endfor
     let l:open += len(filter(copy(l:all), '!v:val.isResolved'))
     let l:waiting += len(filter(copy(l:all), 's:waiting(v:val, l:me)'))
     let l:threads = sort(filter(copy(l:all), 'b:git_extras_resolved || !v:val.isResolved'),
@@ -152,7 +171,7 @@ function! s:render() abort
   setlocal modifiable
   silent %delete _
   call setline(1, [(l:number ? '#' . l:number : 'Your threads') . ': ' . l:open . ' open, '
-        \ . l:waiting . ' your turn  <CR> file  a reply  x resolve  u '
+        \ . l:waiting . ' your turn  = open/close  <CR> file  a reply  x resolve  u '
         \ . (b:git_extras_resolved ? 'hide' : 'show') . ' resolved'
         \ . '  o browser  r refresh  q close'] + l:lines)
   setlocal nomodifiable nomodified
@@ -200,11 +219,13 @@ function! s:open(worktree, kind, number) abort
   let b:git_extras_number = a:number
   let b:git_extras_repo = split(trim(l:repo))
   let b:git_extras_resolved = get(b:, 'git_extras_resolved', 0)
-  setlocal foldmethod=indent foldlevel=99
+  " The ids of the threads opened with =
+  let b:git_extras_open = get(b:, 'git_extras_open', {})
   nnoremap <buffer><silent> <CR> <Cmd>call <SID>goto()<CR>
+  nnoremap <buffer><silent> = <Cmd>call <SID>toggle_open()<CR>
   nnoremap <buffer><silent> a <Cmd>call <SID>reply()<CR>
   nnoremap <buffer><silent> x <Cmd>call <SID>toggle_resolved()<CR>
-  nnoremap <buffer><silent> u <Cmd>let b:git_extras_resolved = !b:git_extras_resolved <Bar> call <SID>render()<CR>
+  nnoremap <buffer><silent> u <Cmd>let b:git_extras_resolved = !b:git_extras_resolved <Bar> call <SID>draw()<CR>
   nnoremap <buffer><silent> o <Cmd>call <SID>browse()<CR>
   nnoremap <buffer><silent> r <Cmd>call <SID>render()<CR>
   call s:render()
@@ -214,6 +235,23 @@ endfunction
 function! s:thread() abort
   let l:i = get(b:git_extras_line_thread, line('.') - 1, -1)
   return l:i < 0 ? {} : b:git_extras_threads[l:i]
+endfunction
+
+" Opens the thread under the cursor to its conversation, or closes it back to
+" its line, where the cursor goes
+function! s:toggle_open() abort
+  let l:thread = s:thread()
+  if empty(l:thread)
+    return
+  endif
+  if has_key(b:git_extras_open, l:thread.id)
+    call remove(b:git_extras_open, l:thread.id)
+  else
+    let b:git_extras_open[l:thread.id] = 1
+  endif
+  let l:i = index(b:git_extras_threads, l:thread)
+  call s:draw()
+  call cursor(index(b:git_extras_line_thread, l:i) + 1, 1)
 endfunction
 
 " The file at the thread's line, in the window above the list; from a commit

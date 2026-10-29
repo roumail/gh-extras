@@ -113,8 +113,11 @@ review is not sent, since GitHub rejects the whole review for one of them.
 `:Thread [number]` lists the review threads on the branch's PR, or PR
 `number`, with their conversations, in a window at the bottom, so you can
 read and answer replies to your comments without the GitHub UI. Each thread
-is its file and line (`a.py:18-20`), its state, then each comment's author,
-age and text; `pending` marks a comment of a review you haven't submitted,
+is one line: its file and line (`a.py:18-20`), its state, how many comments it
+has and the start of the last one, so `j`/`k` go from thread to thread. `=`
+opens a thread to its conversation, each comment's author, age and text, and
+closes it again, as fugitive's `=` does a file's diff; opened threads stay
+open on `r`. `pending` marks a comment of a review you haven't submitted,
 which only you see. The heading counts the open threads and those that are **your
 turn**: open, with someone else's comment last. Resolved threads are hidden
 until `u`. Doesn't need vim-review.
@@ -126,6 +129,7 @@ PR's threads are under a line with its number, branch and title.
 | Key | What it does |
 | --- | --- |
 | `<CR>` | Open the file at the thread's line, in the window above: from the work tree when the PR is the branch checked out, else as of the PR's last commit. An **outdated** thread (its lines changed since) opens the file as of the commit it was made on. Commits must be fetched. |
+| `=` | Open the thread to its conversation, or close it to one line. |
 | `a` | Reply in a markdown buffer above the list. `:w` posts the reply right away, as GitHub's Reply does; writing again edits it; `:q!` before writing drops it. While you have a pending review on the PR, GitHub adds the reply to it instead, and says so. |
 | `x` | Resolve the thread, or unresolve a resolved one. |
 | `u` | Show or hide resolved threads. |
