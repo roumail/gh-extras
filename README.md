@@ -147,12 +147,14 @@ nmap <leader>cl <Plug>(git-extras-branch-commits)
 
 ## Install
 
-Requires vim-fugitive; without it the plugin warns once and defines nothing.
+Requires vim-fugitive. With [vim-requires](https://github.com/roumail/vim-requires),
+Vim shows `git-extras: requires …` at startup when it isn't loaded.
 `:PRs`, `:Thread`, `:Threads` and `:CommentsSubmit` also need `gh`, and are left out without it.
 Review comments need vim-review.
 
 ```vim
 Plug 'tpope/vim-fugitive'
 Plug 'roumail/vim-review'   " optional: review comments
+Plug 'roumail/vim-requires'  " optional: the startup warning
 Plug 'roumail/git-extras'
 ```
