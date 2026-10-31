@@ -8,21 +8,14 @@
 " run from, to go back to
 let s:compares = []
 
-function! s:error(msg) abort
-  echohl ErrorMsg
-  echomsg 'git-extras: ' . a:msg
-  echohl None
-endfunction
-
 " What a comparison's tabs carry
 function! s:key(compare) abort
   return {'dir': a:compare.dir, 'name': a:compare.name}
 endfunction
 
 function! s:tabs(compare) abort
-  let l:key = s:key(a:compare)
   return map(filter(gettabinfo(),
-        \ 'get(v:val.variables, "git_extras_compare", {}) == l:key'), 'v:val.tabnr')
+        \ {_, t -> get(t.variables, 'git_extras_compare', {}) == s:key(a:compare)}), 'v:val.tabnr')
 endfunction
 
 " Diffs base against head (the work tree if '') in the repo at git dir, one
@@ -86,7 +79,7 @@ function! git_extras#compares#close(name) abort
         \ : {'dir': FugitiveGitDir(), 'name': a:name}
   let l:compare = get(filter(copy(s:compares), 's:key(v:val) ==# l:key'), 0, {})
   if empty(l:compare)
-    call s:error('no comparison ' . get(l:key, 'name', '') . ' in :Compares')
+    call git_extras#error('no comparison ' . get(l:key, 'name', '') . ' in :Compares')
     return
   endif
   let l:tabs = s:tabs(l:compare)
@@ -112,7 +105,7 @@ function! git_extras#compares#close(name) abort
     call win_gotoid(l:compare.win)
   endif
   if l:left
-    call s:error(l:left . ' tab(s) of ' . l:compare.name
+    call git_extras#error(l:left . ' tab(s) of ' . l:compare.name
           \ . ' left open: unsaved changes')
   endif
 endfunction
@@ -126,27 +119,20 @@ endfunction
 " ---------------------------------------------------------------------------
 " :Compares, a list like :PRs
 
-" 40s / 5m / 3h
-function! s:age(time) abort
-  let l:seconds = localtime() - a:time
-  return l:seconds < 60 ? l:seconds . 's'
-        \ : l:seconds < 3600 ? (l:seconds / 60) . 'm'
-        \ : (l:seconds / 3600) . 'h'
-endfunction
-
-function! s:line(compare) abort
-  return printf('%-30.30s %s..%-24.24s %3d files %3d open  %s', a:compare.name,
-        \ a:compare.base[:6], empty(a:compare.head) ? 'work tree' : a:compare.head,
-        \ a:compare.files, len(a:compare.tabs), s:age(a:compare.time))
-endfunction
-
 function! s:render() abort
   let b:git_extras_compares = git_extras#compares#list(b:git_extras_dir)
+  let l:lines = ['Comparisons (' . len(b:git_extras_compares) . ')  <CR> open  d remove  r refresh  q close']
+  for l:c in b:git_extras_compares
+    let l:seconds = localtime() - l:c.time
+    call add(l:lines, printf('%-30.30s %s..%-24.24s %3d files %3d open  %s', l:c.name,
+          \ l:c.base[:6], empty(l:c.head) ? 'work tree' : l:c.head, l:c.files, len(l:c.tabs),
+          \ l:seconds < 60 ? l:seconds . 's'
+          \ : l:seconds < 3600 ? (l:seconds / 60) . 'm'
+          \ : (l:seconds / 3600) . 'h'))
+  endfor
   setlocal modifiable
   silent %delete _
-  call setline(1, ['Comparisons (' . len(b:git_extras_compares)
-        \ . ')  <CR> open  d remove  r refresh  q close']
-        \ + map(copy(b:git_extras_compares), 's:line(v:val)'))
+  call setline(1, l:lines)
   setlocal nomodifiable nomodified
   call git_extras#list_fit()
   call cursor(2, 1)
@@ -156,7 +142,7 @@ function! git_extras#compares#show() abort
   let l:dir = FugitiveGitDir()
   let l:worktree = FugitiveWorkTree()
   if empty(l:worktree)
-    call s:error('not in a git work tree')
+    call git_extras#error('not in a git work tree')
     return
   endif
   call git_extras#list_open('git-extras://compares/' . fnamemodify(l:worktree, ':t'))

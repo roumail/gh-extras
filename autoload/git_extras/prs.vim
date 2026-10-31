@@ -12,40 +12,6 @@ let s:query = 'query($owner: String!, $name: String!, $count: Int!) {'
 let s:states = {'APPROVED': 'approved', 'CHANGES_REQUESTED': 'changes',
       \ 'REVIEW_REQUIRED': 'review'}
 
-function! s:error(msg) abort
-  echohl ErrorMsg
-  echomsg 'git-extras: ' . a:msg
-  echohl None
-endfunction
-
-" login -> readable name, from g:git_extras_pr_authors (default
-" ~/.config/gh-pr-authors.txt), one name:login per line; {} without the file.
-" Keyed lowercase: logins aren't case-sensitive
-function! s:authors() abort
-  let l:file = expand(get(g:, 'git_extras_pr_authors', '~/.config/gh-pr-authors.txt'))
-  let l:names = {}
-  if filereadable(l:file)
-    for l:line in readfile(l:file)
-      let l:m = matchlist(l:line, '^\s*\([^:#[:space:]][^:]\{-}\)\s*:\s*\([^:[:space:]]\+\)\s*$')
-      if !empty(l:m)
-        let l:names[tolower(l:m[2])] = l:m[1]
-      endif
-    endfor
-  endif
-  return l:names
-endfunction
-
-" Who opened it: their name from the authors file, else the login
-function! s:who(pr, names) abort
-  let l:login = type(a:pr.author) == v:t_dict ? a:pr.author.login : 'ghost'
-  return get(a:names, tolower(l:login), l:login)
-endfunction
-
-function! s:state(pr) abort
-  return a:pr.isDraft ? 'draft'
-        \ : get(s:states, type(a:pr.reviewDecision) == v:t_string ? a:pr.reviewDecision : '', '-')
-endfunction
-
 " Cut or padded to width screen cells: printf counts bytes, and names aren't
 " all ASCII
 function! s:pad(text, width) abort
@@ -64,11 +30,6 @@ function! s:format(widths, num, who, title, branch, state, age) abort
         \ s:pad(a:title, a:widths[1]), s:pad(a:branch, a:widths[2]), a:state, a:age)
 endfunction
 
-function! s:line(pr, widths) abort
-  return s:format(a:widths, '#' . a:pr.number, a:pr._who, a:pr.title,
-        \ a:pr.headRefName, s:state(a:pr), git_extras#age(a:pr.updatedAt))
-endfunction
-
 " Fetches the PRs into b:git_extras_prs, then draws them through the filter
 function! s:render() abort
   let l:out = git_extras#gh(b:git_extras_worktree, 'api graphql -F owner={owner} -F name={repo}'
@@ -77,9 +38,19 @@ function! s:render() abort
     return
   endif
   let l:prs = json_decode(l:out).data.repository.pullRequests.nodes
-  let l:names = s:authors()
+  " login -> readable name, from name:login lines; keyed lowercase: logins
+  " aren't case-sensitive
+  let l:names = {}
+  let l:file = expand(get(g:, 'git_extras_pr_authors', '~/.config/gh-pr-authors.txt'))
+  for l:line in filereadable(l:file) ? readfile(l:file) : []
+    let l:m = matchlist(l:line, '^\s*\([^:#[:space:]][^:]\{-}\)\s*:\s*\([^:[:space:]]\+\)\s*$')
+    if !empty(l:m)
+      let l:names[tolower(l:m[2])] = l:m[1]
+    endif
+  endfor
   for l:pr in l:prs
-    let l:pr._who = s:who(l:pr, l:names)
+    let l:login = type(l:pr.author) == v:t_dict ? l:pr.author.login : 'ghost'
+    let l:pr._who = get(l:names, tolower(l:login), l:login)
   endfor
   let b:git_extras_prs = l:prs
   let b:git_extras_widths = [
@@ -90,26 +61,21 @@ function! s:render() abort
   call cursor(3, 1)
 endfunction
 
-" The fetched PRs that fuzzy-match b:git_extras_filter on who, title and branch, best
-" first (as fzf: space-separated words each match); all of them, latest first,
-" without a filter
-function! s:filtered() abort
-  if empty(b:git_extras_filter)
-    return b:git_extras_prs
-  endif
-  return matchfuzzy(b:git_extras_prs, b:git_extras_filter,
-        \ {'text_cb': {pr -> pr._who . ' ' . pr.title . ' ' . pr.headRefName}})
-endfunction
-
 function! s:draw() abort
-  let l:prs = s:filtered()
-  let l:count = empty(b:git_extras_filter) ? len(l:prs)
-        \ : len(l:prs) . '/' . len(b:git_extras_prs) . ' matching ' . string(b:git_extras_filter)
+  " As fzf: space-separated words each match, best first
+  let l:prs = empty(b:git_extras_filter) ? b:git_extras_prs
+        \ : matchfuzzy(b:git_extras_prs, b:git_extras_filter,
+        \   {'text_cb': {pr -> pr._who . ' ' . pr.title . ' ' . pr.headRefName}})
   setlocal modifiable
   silent %delete _
-  call setline(1, ['Open PRs (' . l:count . ')  <CR> checkout  / filter  t threads  o browser  r refresh  q close',
+  call setline(1, ['Open PRs (' . len(l:prs) . (empty(b:git_extras_filter) ? ''
+        \   : '/' . len(b:git_extras_prs) . ' matching ' . string(b:git_extras_filter))
+        \ . ')  <CR> checkout  / filter  t threads  o browser  r refresh  q close',
         \ s:format(b:git_extras_widths, '#', 'who', 'title', 'branch', 'state', 'age')]
-        \ + map(copy(l:prs), 's:line(v:val, b:git_extras_widths)'))
+        \ + map(copy(l:prs), {_, pr -> s:format(b:git_extras_widths, '#' . pr.number, pr._who,
+        \     pr.title, pr.headRefName, pr.isDraft ? 'draft'
+        \     : get(s:states, type(pr.reviewDecision) == v:t_string ? pr.reviewDecision : '', '-'),
+        \     git_extras#age(pr.updatedAt))}))
   setlocal nomodifiable nomodified
   call git_extras#list_fit()
 endfunction
@@ -151,12 +117,8 @@ function! s:filter() abort
 endfunction
 
 function! git_extras#prs#open(count) abort
-  let l:worktree = FugitiveWorkTree()
+  let l:worktree = git_extras#github_worktree(':PRs')
   if empty(l:worktree)
-    call s:error('not in a git work tree')
-    return
-  endif
-  if !git_extras#require_remote(':PRs')
     return
   endif
   call git_extras#list_open('git-extras://prs/' . fnamemodify(l:worktree, ':t'))

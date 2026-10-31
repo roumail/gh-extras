@@ -8,7 +8,7 @@ function! s:git(args) abort
   return filter(copy(l:result.stdout), '!empty(v:val)')
 endfunction
 
-function! s:error(msg) abort
+function! git_extras#error(msg) abort
   echohl ErrorMsg
   echomsg 'git-extras: ' . a:msg
   echohl None
@@ -19,7 +19,7 @@ endfunction
 function! git_extras#gh(worktree, args, ...) abort
   let l:out = call('system', ['cd ' . shellescape(a:worktree) . ' && gh ' . a:args] + a:000)
   if v:shell_error
-    call s:error('gh: ' . substitute(trim(l:out), '\n', ' ', 'g'))
+    call git_extras#error('gh: ' . substitute(trim(l:out), '\n', ' ', 'g'))
     return v:null
   endif
   return l:out
@@ -33,44 +33,45 @@ function! git_extras#pr_number(worktree, number) abort
   let l:number = trim(system('cd ' . shellescape(a:worktree)
         \ . ' && gh pr view --json number --jq .number'))
   if v:shell_error
-    call s:error('no PR for this branch; pass its number')
+    call git_extras#error('no PR for this branch; pass its number')
     return ''
   endif
   return l:number
 endfunction
 
-" Seconds since the epoch for an ISO 8601 UTC time (2024-05-01T12:00:00Z)
-function! s:epoch(iso) abort
-  let l:p = matchlist(a:iso, '\v(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d):(\d\d)Z')
-  if empty(l:p)
-    return 0
-  endif
-  let [l:y, l:m, l:d] = [str2nr(l:p[1]), str2nr(l:p[2]), str2nr(l:p[3])]
-  " Days from civil (Howard Hinnant's algorithm)
-  let l:y -= l:m <= 2
-  let l:era = l:y / 400
-  let l:yoe = l:y - l:era * 400
-  let l:doy = (153 * ((l:m + 9) % 12) + 2) / 5 + l:d - 1
-  let l:days = l:era * 146097 + l:yoe * 365 + l:yoe / 4 - l:yoe / 100 + l:doy - 719468
-  return l:days * 86400 + str2nr(l:p[4]) * 3600 + str2nr(l:p[5]) * 60 + str2nr(l:p[6])
-endfunction
-
-" 5h / 3d / 2mo
+" 5h / 3d / 2mo, for an ISO 8601 UTC time (2024-05-01T12:00:00Z)
 function! git_extras#age(iso) abort
-  let l:hours = (localtime() - s:epoch(a:iso)) / 3600
+  let l:p = matchlist(a:iso, '\v(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d):(\d\d)Z')
+  let l:epoch = 0
+  if !empty(l:p)
+    let [l:y, l:m, l:d] = [str2nr(l:p[1]), str2nr(l:p[2]), str2nr(l:p[3])]
+    " Days from civil (Howard Hinnant's algorithm)
+    let l:y -= l:m <= 2
+    let l:era = l:y / 400
+    let l:yoe = l:y - l:era * 400
+    let l:epoch = (l:era * 146097 + l:yoe * 365 + l:yoe / 4 - l:yoe / 100
+          \ + (153 * ((l:m + 9) % 12) + 2) / 5 + l:d - 1 - 719468) * 86400
+          \ + str2nr(l:p[4]) * 3600 + str2nr(l:p[5]) * 60 + str2nr(l:p[6])
+  endif
+  let l:hours = (localtime() - l:epoch) / 3600
   return l:hours < 24 ? l:hours . 'h'
         \ : l:hours < 24 * 60 ? (l:hours / 24) . 'd'
         \ : (l:hours / 24 / 30) . 'mo'
 endfunction
 
-" gh finds the GitHub repo from the git remotes; without one it fails with
-" 'error parsing "owner" value'. Errors and returns 0 when there is none.
-function! git_extras#require_remote(command) abort
-  if empty(s:git(['remote']))
-    call s:error(a:command . ' needs the repo on GitHub, and it has no git remote')
-    return 0
+function! git_extras#github_worktree(command) abort
+  let l:worktree = FugitiveWorkTree()
+  if empty(l:worktree)
+    call git_extras#error('not in a git work tree')
+    return ''
   endif
-  return 1
+  " gh finds the GitHub repo from the git remotes; without one it fails with
+  " 'error parsing "owner" value'
+  if empty(s:git(['remote']))
+    call git_extras#error(a:command . ' needs the repo on GitHub, and it has no git remote')
+    return ''
+  endif
+  return l:worktree
 endfunction
 
 " The default branch as a ref: origin/HEAD, else main or master. The remote
@@ -94,22 +95,22 @@ endfunction
 " only that branch's changes (like a PR), not what landed on main since.
 function! s:base(branch) abort
   if empty(FugitiveGitDir())
-    call s:error('not in a git repository')
+    call git_extras#error('not in a git repository')
     return ''
   endif
   let l:branch = empty(a:branch) ? 'HEAD' : a:branch
   if !s:is_commit(l:branch)
-    call s:error('unknown branch ' . l:branch . ' (:Git fetch?)')
+    call git_extras#error('unknown branch ' . l:branch . ' (:Git fetch?)')
     return ''
   endif
   let l:main = git_extras#main_ref()
   if empty(l:main)
-    call s:error('no origin/HEAD, main or master found')
+    call git_extras#error('no origin/HEAD, main or master found')
     return ''
   endif
   let l:base = s:git(['merge-base', l:branch, l:main])
   if empty(l:base)
-    call s:error('no merge-base between ' . l:branch . ' and ' . l:main)
+    call git_extras#error('no merge-base between ' . l:branch . ' and ' . l:main)
     return ''
   endif
   let s:bases[l:base[0]] = 1
