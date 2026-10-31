@@ -131,10 +131,9 @@ function! s:outside_diff(worktree, number, commit, comments) abort
   endfor
   let l:outside = []
   for l:c in a:comments
-    let l:start = get(l:c, 'start_line', l:c.line)
     if empty(filter(copy(get(l:hunks, l:c.path, [])),
-          \ 'v:val[0] <= l:start && l:c.line <= v:val[1]'))
-      call add(l:outside, l:c.path . ':' . (l:start == l:c.line ? '' : l:start . '-') . l:c.line)
+          \ 'v:val[0] <= l:c.start && l:c.end <= v:val[1]'))
+      call add(l:outside, l:c.path . ':' . l:c.start . (l:c.end > l:c.start ? '-' . l:c.end : ''))
     endif
   endfor
   return l:outside
@@ -180,12 +179,6 @@ function! git_extras#comments#submit(number) abort
           \ . join(l:changed.stdout, ', ') . '; commit or stash the changes first')
     return
   endif
-  for l:c in l:comments
-    let l:c.side = 'RIGHT'
-    if has_key(l:c, 'start_line')
-      let l:c.start_side = 'RIGHT'
-    endif
-  endfor
   let l:cd = 'cd ' . shellescape(l:worktree) . ' && '
   let l:number = git_extras#pr_number(l:worktree, a:number)
   if empty(l:number)
@@ -205,7 +198,9 @@ function! git_extras#comments#submit(number) abort
   endif
   let l:out = system(l:cd . 'gh api repos/{owner}/{repo}/pulls/' . l:number
         \ . '/reviews --input - --jq .html_url',
-        \ json_encode({'commit_id': l:commit, 'comments': l:comments}))
+        \ json_encode({'commit_id': l:commit, 'comments': map(copy(l:comments),
+        \   {_, c -> extend({'path': c.path, 'body': c.body, 'line': c.end, 'side': 'RIGHT'},
+        \     c.end > c.start ? {'start_line': c.start, 'start_side': 'RIGHT'} : {})})}))
   if v:shell_error
     call s:error('gh: ' . substitute(trim(l:out), '\n', ' ', 'g'))
     return
