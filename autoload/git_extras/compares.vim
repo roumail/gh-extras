@@ -1,14 +1,6 @@
-" Comparisons :BranchDiff has opened, like GitLens' Search & Compare: each
-" stays listed until removed in :Compares, whether its tabs are open or not.
-" Its tabs carry it as t:git_extras_compare, so closing the ones that raised
-" no questions leaves the ones that did. For this Vim session only.
-
-" {dir, name, base, head, files, time, win}: dir is the git dir, so each work
-" tree has its own; head '' is the work tree; win the window :BranchDiff was
-" run from, to go back to
+" dir is the git dir, so each work tree has its own comparisons
 let s:compares = []
 
-" What a comparison's tabs carry
 function! s:key(compare) abort
   return {'dir': a:compare.dir, 'name': a:compare.name}
 endfunction
@@ -18,9 +10,6 @@ function! s:tabs(compare) abort
         \ {_, t -> get(t.variables, 'git_extras_compare', {}) == s:key(a:compare)}), 'v:val.tabnr')
 endfunction
 
-" Diffs base against head (the work tree if '') in the repo at git dir, one
-" tab per file after this one, and lists them as name, replacing a comparison
-" of that name
 function! git_extras#compares#open(dir, name, base, head) abort
   let l:here = tabpagenr()
   let l:win = win_getid()
@@ -48,9 +37,6 @@ function! git_extras#compares#open(dir, name, base, head) abort
   endfor
 endfunction
 
-" The comparisons in the repo at git dir (default: the current buffer's), newest
-" first, each with the tabs still showing it: [{name, base, head, files, time,
-" tabs}]
 function! git_extras#compares#list(...) abort
   let l:dir = a:0 ? a:1 : FugitiveGitDir()
   let l:list = []
@@ -60,7 +46,6 @@ function! git_extras#compares#list(...) abort
   return l:list
 endfunction
 
-" Unlists a comparison; its tabs stay open, no longer named
 function! git_extras#compares#remove(dir, name) abort
   for l:compare in filter(copy(s:compares),
         \ 'v:val.dir ==# a:dir && v:val.name ==# a:name')
@@ -71,9 +56,6 @@ function! git_extras#compares#remove(dir, name) abort
   endfor
 endfunction
 
-" Closes the tabs of the comparison name in the current buffer's repo (''
-" for this tab's); from one of them, goes back to the window :BranchDiff was
-" run from. It stays listed, to open again from :Compares.
 function! git_extras#compares#close(name) abort
   let l:key = empty(a:name) ? get(t:, 'git_extras_compare', {})
         \ : {'dir': FugitiveGitDir(), 'name': a:name}
@@ -110,14 +92,11 @@ function! git_extras#compares#close(name) abort
   endif
 endfunction
 
-" The comparison names in the current buffer's repo, for :DiffClose <Tab>
 function! git_extras#compares#complete(lead, cmdline, pos) abort
   return filter(map(git_extras#compares#list(), 'v:val.name'),
         \ 'stridx(v:val, a:lead) == 0')
 endfunction
 
-" ---------------------------------------------------------------------------
-" :Compares, a list like :PRs
 
 function! s:render() abort
   let b:git_extras_compares = git_extras#compares#list(b:git_extras_dir)
@@ -153,12 +132,10 @@ function! git_extras#compares#show() abort
   call s:render()
 endfunction
 
-" The comparison on the cursor's line, {} on the heading
 function! s:selected() abort
   return get(b:git_extras_compares, line('.') - 2, {})
 endfunction
 
-" Closes the list, then its files in new tabs, all of them again
 function! s:open() abort
   let l:compare = s:selected()
   if empty(l:compare)

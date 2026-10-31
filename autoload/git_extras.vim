@@ -1,5 +1,3 @@
-" Runs git in the current buffer's repo; returns stdout lines, or v:null on
-" failure.
 function! s:git(args) abort
   let l:result = FugitiveExecute(a:args)
   if l:result.exit_status != 0
@@ -14,8 +12,6 @@ function! git_extras#error(msg) abort
   echohl None
 endfunction
 
-" Runs gh in the work tree, where it finds the repo, with input on stdin if
-" given; v:null on failure
 function! git_extras#gh(worktree, args, ...) abort
   let l:out = call('system', ['cd ' . shellescape(a:worktree) . ' && gh ' . a:args] + a:000)
   if v:shell_error
@@ -25,7 +21,6 @@ function! git_extras#gh(worktree, args, ...) abort
   return l:out
 endfunction
 
-" number, else the current branch's PR; '' with an error when it has none
 function! git_extras#pr_number(worktree, number) abort
   if !empty(a:number)
     return a:number
@@ -39,7 +34,6 @@ function! git_extras#pr_number(worktree, number) abort
   return l:number
 endfunction
 
-" 5h / 3d / 2mo, for an ISO 8601 UTC time (2024-05-01T12:00:00Z)
 function! git_extras#age(iso) abort
   let l:p = matchlist(a:iso, '\v(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d):(\d\d)Z')
   let l:epoch = 0
@@ -74,10 +68,9 @@ function! git_extras#github_worktree(command) abort
   return l:worktree
 endfunction
 
-" The default branch as a ref: origin/HEAD, else main or master. The remote
-" ref is preferred, since the local branch is often stale after a fetch or a
-" `gh pr checkout`.
 function! git_extras#main_ref() abort
+  " The remote ref first: the local branch is often stale after a fetch or a
+  " `gh pr checkout`
   let l:head = s:git(['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'])
   if !empty(l:head)
     return l:head[0]
@@ -91,8 +84,6 @@ function! git_extras#main_ref() abort
   return ''
 endfunction
 
-" The commit where branch (HEAD if empty) forked from main, so diffs show
-" only that branch's changes (like a PR), not what landed on main since.
 function! s:base(branch) abort
   if empty(FugitiveGitDir())
     call git_extras#error('not in a git repository')
@@ -120,13 +111,10 @@ endfunction
 " Merge-bases these commands have diffed against, to tell a diff's base side
 let s:bases = {}
 
-" Whether a fugitive revision ('<commit>:<path>') is a merge-base we diffed
-" against
 function! git_extras#is_base(rev) abort
   return has_key(s:bases, matchstr(a:rev, '^\x\{40,}'))
 endfunction
 
-" Index | working tree; with bang, the merge-base with main | working tree
 function! git_extras#diff_this(bang) abort
   if !a:bang
     Gvdiffsplit
@@ -142,9 +130,6 @@ function! s:is_commit(rev) abort
   return s:git(['rev-parse', '--verify', '--quiet', a:rev . '^{commit}']) isnot v:null
 endfunction
 
-" With a branch, diffs are merge-base..branch; without, merge-base against the
-" working tree, so uncommitted changes show too. Listed in :Compares as the
-" branch, or the current branch's name.
 function! git_extras#branch_diff(branch) abort
   let l:base = s:base(a:branch)
   if !empty(l:base)
@@ -153,7 +138,6 @@ function! git_extras#branch_diff(branch) abort
   endif
 endfunction
 
-" A first arg that names a commit is the branch; the rest go to git log.
 function! git_extras#branch_commits(args) abort
   let l:first = matchstr(a:args, '^\S\+')
   let l:branch = 'HEAD'
@@ -180,7 +164,6 @@ function! git_extras#complete_branch(lead, cmdline, pos) abort
   return filter(l:refs, 'stridx(v:val, a:lead) == 0')
 endfunction
 
-" Branch for the first argument, files after it
 function! git_extras#complete_commits(lead, cmdline, pos) abort
   if strpart(a:cmdline, 0, a:pos) =~# '^\S\+\s\+\S*$'
     return git_extras#complete_branch(a:lead, a:cmdline, a:pos)
@@ -188,9 +171,8 @@ function! git_extras#complete_commits(lead, cmdline, pos) abort
   return getcompletion(a:lead, 'file')
 endfunction
 
-" The lists (:PRs, :Compares) are scratch buffers in a window of their own at
-" the bottom, so q and :q close only them, never a window of yours.
 function! git_extras#list_open(name) abort
+  " A window of its own, so q and :q close only the list, never a window of yours
   let l:winnr = bufwinnr('^' . a:name . '$')
   if l:winnr > 0
     execute l:winnr . 'wincmd w'
@@ -205,8 +187,6 @@ function! git_extras#list_fit() abort
   execute 'resize' min([line('$'), 15])
 endfunction
 
-" Closes its window, and with it the list (bufhidden=wipe); when it's the
-" last window left, shows an empty buffer instead
 function! git_extras#list_close() abort
   if winnr('$') > 1
     close
@@ -215,8 +195,6 @@ function! git_extras#list_close() abort
   endif
 endfunction
 
-" The comparison name, or the one this tab is in; else the fugitive windows
-" in this tab, then diff mode off
 function! git_extras#diff_close(name) abort
   if !empty(a:name) || has_key(t:, 'git_extras_compare')
     call git_extras#compares#close(a:name)

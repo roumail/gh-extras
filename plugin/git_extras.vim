@@ -1,15 +1,9 @@
-" git-extras: additions to vim-fugitive. Review a branch against the repo's
-" default branch (main/master), keeping each review as a comparison, stage
-" hunks in a vertical diff, list open PRs and answer their review threads.
-" With roumail/vim-review, its review comments go on fugitive diffs, are saved
-" per branch and post to the PR. Commands and <Plug> mappings only; no keys
-" are bound here. Requires tpope/vim-fugitive; the GitHub commands need gh.
 if exists('g:loaded_git_extras')
   finish
 endif
 let g:loaded_git_extras = 1
 
-" Warns at startup when a required plugin isn't loaded (roumail/vim-requires)
+" roumail/vim-requires is optional
 try
   call roumail_requires#check('git-extras', {
         \ 'tpope/vim-fugitive': 'g:loaded_fugitive',

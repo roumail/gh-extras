@@ -149,6 +149,13 @@ nmap <leader>cd <Plug>(git-extras-diff-main)
 nmap <leader>cl <Plug>(git-extras-branch-commits)
 ```
 
+## For other plugins
+
+| Function | What it does |
+| --- | --- |
+| `git_extras#main_ref()` | Main as a ref (`origin/main`, `main`, …) in the current buffer's repo, or `''`. |
+| `git_extras#compares#list([gitdir])` | The comparisons in the repo at `gitdir` (default: the current buffer's), newest first, as `{name, base, head, files, time, tabs}`: `head` is `''` for the work tree, `tabs` the tab numbers still showing it. |
+
 ## Install
 
 Requires vim-fugitive and [vim-draft](https://github.com/roumail/vim-draft), the buffer replies are written in. With [vim-requires](https://github.com/roumail/vim-requires),

@@ -1,8 +1,3 @@
-" :Thread: a PR's review threads with their conversations, in a window at the
-" bottom, to read the replies to your comments, answer them and resolve them
-" without the GitHub UI. Replies post at once, as GitHub's Reply does.
-" :Threads: the same, for the threads you're in across the open PRs.
-
 " Comments are capped lower across PRs, to stay under GitHub's limit of
 " 500,000 nodes a query
 let s:pr_fields = 'number title headRefName headRefOid author { login }'
@@ -43,13 +38,11 @@ function! s:outdated(thread) abort
   return a:thread.isOutdated || a:thread.line is v:null
 endfunction
 
-" Where the thread is: on the PR's head (the work tree when that is the branch
-" checked out), or, once its lines have changed (outdated), on the commit it
-" was made on. line is null for a comment on the whole file.
 function! s:place(thread) abort
   let l:outdated = s:outdated(a:thread)
   let l:line = l:outdated ? a:thread.originalLine : a:thread.line
   let l:start = l:outdated ? a:thread.originalStartLine : a:thread.startLine
+  " line is null for a comment on the whole file
   return {
         \ 'commit': l:outdated ? a:thread.comments.nodes[0].originalCommit.oid : a:thread.head,
         \ 'line': l:line is v:null ? 1 : l:line,
@@ -57,15 +50,11 @@ function! s:place(thread) abort
         \ }
 endfunction
 
-" Open, and the last word isn't yours
 function! s:waiting(thread, me) abort
   return !a:thread.isResolved
         \ && s:login(a:thread.comments.nodes[-1].author) !=? a:me
 endfunction
 
-" Fetches the threads into b:git_extras_fetched, then draws them.
-" b:git_extras_number is :Thread's PR, 0 for :Threads, which puts each PR's
-" threads under a line of its own
 function! s:render() abort
   let l:number = b:git_extras_number
   let l:variables = {'owner': b:git_extras_repo[0], 'name': b:git_extras_repo[1]}
@@ -82,7 +71,6 @@ function! s:render() abort
   let l:branch = FugitiveHead(0, b:git_extras_gitdir)
   for l:pr in l:prs
     if !l:number
-      " On your PR, or you wrote in it
       call filter(l:pr.reviewThreads.nodes, {_, t -> s:login(l:pr.author) ==? l:me
             \ || !empty(filter(copy(t.comments.nodes), 's:login(v:val.author) ==? l:me'))})
     endif
@@ -99,7 +87,6 @@ function! s:draw() abort
   let l:number = b:git_extras_number
   let l:me = b:git_extras_fetched.me
   let b:git_extras_threads = []
-  " The thread on each line, by index into b:git_extras_threads
   let b:git_extras_line_thread = [-1]
   let l:lines = []
   let [l:open, l:waiting] = [0, 0]
@@ -186,7 +173,6 @@ function! s:open(worktree, kind, number) abort
   let b:git_extras_number = a:number
   let b:git_extras_repo = split(trim(l:repo))
   let b:git_extras_resolved = get(b:, 'git_extras_resolved', 0)
-  " The ids of the threads opened with =
   let b:git_extras_open = get(b:, 'git_extras_open', {})
   nnoremap <buffer><silent> <CR> <Cmd>call <SID>goto()<CR>
   nnoremap <buffer><silent> = <Cmd>call <SID>toggle_open()<CR>
@@ -204,8 +190,6 @@ function! s:thread() abort
   return l:i < 0 ? {} : b:git_extras_threads[l:i]
 endfunction
 
-" Opens the thread under the cursor to its conversation, or closes it back to
-" its line, where the cursor goes
 function! s:toggle_open() abort
   let l:thread = s:thread()
   if empty(l:thread)
@@ -221,9 +205,6 @@ function! s:toggle_open() abort
   call cursor(index(b:git_extras_line_thread, l:i) + 1, 1)
 endfunction
 
-" The file at the thread's line, in the window above the list; from a commit
-" when the work tree doesn't have its lines: an outdated thread's, or the head
-" of a PR that isn't checked out
 function! s:goto() abort
   let l:thread = s:thread()
   if empty(l:thread)
@@ -297,7 +278,6 @@ function! s:toggle_resolved() abort
   endif
 endfunction
 
-" The thread's PR, or on one of :Threads' PR lines, that PR
 function! s:browse() abort
   let l:thread = s:thread()
   let l:number = !empty(l:thread) ? l:thread.pr

@@ -1,9 +1,3 @@
-" Review comments are vim-review's (:Comment, :Comments, :CommentsSave,
-" :CommentsLoad). This is its provider for git work trees: comments are on
-" files in the work tree or the branch side of a fugitive diff, paths are
-" relative to the work tree, and saves are per branch in the git dir. Plus
-" :CommentsSubmit, which posts them to the branch's PR.
-
 function! s:fetch_missing(commit, ref) abort
   if FugitiveExecute(['cat-file', '-e', a:commit . '^{commit}']).exit_status
     let l:remotes = FugitiveExecute(['remote']).stdout
@@ -11,11 +5,9 @@ function! s:fetch_missing(commit, ref) abort
   endif
 endfunction
 
-" The current buffer's path relative to the work tree: a file, or a
-" fugitive:// object (a commit's or the index's version of one). {} outside
-" a work tree, so vim-review's default applies.
 function! s:target() abort
   if empty(FugitiveWorkTree())
+    " vim-review's default applies
     return {}
   endif
   let l:path = FugitivePath(@%, '')
@@ -28,17 +20,14 @@ function! s:target() abort
   return {'path': l:path}
 endfunction
 
-" Saves for the current branch (the commit when detached), in the git dir
-" shared by all work trees, so never committed:
-" vim-review/<branch>/<time>.txt
 function! s:save_dir() abort
+  " In the git dir shared by all work trees, so saves are never committed
   let l:common = FugitiveCommonDir()
   let l:head = FugitiveHead(7)
   return empty(l:common) || empty(l:head) ? ''
         \ : l:common . '/vim-review/' . l:head
 endfunction
 
-" Makes this vim-review's provider
 function! git_extras#comments#init() abort
   call review#use({
         \ 'root': function('FugitiveWorkTree'),
@@ -48,16 +37,12 @@ function! git_extras#comments#init() abort
         \ })
 endfunction
 
-" Warns when the unsaved comments are from another branch than HEAD
 function! git_extras#comments#check() abort
   if exists('g:loaded_review')
     call review#check()
   endif
 endfunction
 
-" Posts the comments as one pending review of HEAD on a PR (the current
-" branch's, or number), so you can check them on GitHub and submit there or
-" with gh.
 function! git_extras#comments#submit(number) abort
   let l:worktree = git_extras#github_worktree(':CommentsSubmit')
   if empty(l:worktree)
@@ -142,7 +127,6 @@ function! git_extras#comments#submit(number) abort
     call git_extras#error('git: cannot read the diff of PR ' . l:number . ' at ' . l:commit[:6])
     return
   endif
-  " {path: [[first, last], ...]}, the new side's lines of each hunk
   let l:hunks = {}
   let l:path = ''
   for l:line in l:diff.stdout

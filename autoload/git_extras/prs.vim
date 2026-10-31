@@ -1,7 +1,3 @@
-" :PRs: the repo's open pull requests, most recently updated first, in a
-" window at the bottom. One GraphQL query through gh; JSON is parsed here, so
-" jq isn't needed.
-
 let s:query = 'query($owner: String!, $name: String!, $count: Int!) {'
       \ . ' repository(owner: $owner, name: $name) {'
       \ . ' pullRequests(states: OPEN, first: $count,'
@@ -30,13 +26,13 @@ function! s:format(widths, num, who, title, branch, state, age) abort
         \ s:pad(a:title, a:widths[1]), s:pad(a:branch, a:widths[2]), a:state, a:age)
 endfunction
 
-" Fetches the PRs into b:git_extras_prs, then draws them through the filter
 function! s:render() abort
   let l:out = git_extras#gh(b:git_extras_worktree, 'api graphql -F owner={owner} -F name={repo}'
         \ . ' -F count=' . b:git_extras_count . ' -f query=' . shellescape(s:query))
   if l:out is v:null
     return
   endif
+  " Parsed here, so jq isn't needed
   let l:prs = json_decode(l:out).data.repository.pullRequests.nodes
   " login -> readable name, from name:login lines; keyed lowercase: logins
   " aren't case-sensitive
@@ -80,8 +76,6 @@ function! s:draw() abort
   call git_extras#list_fit()
 endfunction
 
-" Filters as you type: <CR> keeps the filter (empty shows them all), <Esc>
-" puts the previous one back; <BS>, <C-w> and <C-u> edit it
 function! s:filter() abort
   let l:before = b:git_extras_filter
   while 1
@@ -137,7 +131,6 @@ function! s:number() abort
   return str2nr(matchstr(getline('.'), '^#\zs\d\+'))
 endfunction
 
-" gh pr checkout, then back to the buffer you came from, reloaded
 function! s:checkout() abort
   let l:number = s:number()
   if !l:number
