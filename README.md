@@ -130,7 +130,7 @@ PR's threads are under a line with its number, branch and title.
 | --- | --- |
 | `<CR>` | Open the file at the thread's line, in the window above: from the work tree when the PR is the branch checked out, else as of the PR's last commit. An **outdated** thread (its lines changed since) opens the file as of the commit it was made on. Commits must be fetched. |
 | `=` | Open the thread to its conversation, or close it to one line. |
-| `a` | Reply in a markdown buffer above the list. `:w` posts the reply right away, as GitHub's Reply does; writing again edits it; `:q!` before writing drops it. While you have a pending review on the PR, GitHub adds the reply to it instead, and says so. |
+| `a` | Reply in a markdown buffer above the list, a [vim-draft](https://github.com/roumail/vim-draft) draft: `:w` saves it, closing it (`:wq`, or `:q` after `:w`) posts what was last saved, and an empty one or `:q!` before any `:w` posts nothing. If posting fails, the reply's text is in the unnamed register. While you have a pending review on the PR, GitHub adds the reply to it instead, and says so. |
 | `x` | Resolve the thread, or unresolve a resolved one. |
 | `u` | Show or hide resolved threads. |
 | `o` | Open the thread's PR in the browser. |
@@ -151,13 +151,14 @@ nmap <leader>cl <Plug>(git-extras-branch-commits)
 
 ## Install
 
-Requires vim-fugitive. With [vim-requires](https://github.com/roumail/vim-requires),
-Vim shows `git-extras: requires …` at startup when it isn't loaded.
+Requires vim-fugitive and [vim-draft](https://github.com/roumail/vim-draft), the buffer replies are written in. With [vim-requires](https://github.com/roumail/vim-requires),
+Vim shows `git-extras: requires …` at startup when one of them isn't loaded.
 `:PRs`, `:Thread`, `:Threads` and `:CommentsSubmit` also need `gh`, and are left out without it.
 Review comments need vim-review.
 
 ```vim
 Plug 'tpope/vim-fugitive'
+Plug 'roumail/vim-draft'
 Plug 'roumail/vim-review'   " optional: review comments
 Plug 'roumail/vim-requires'  " optional: the startup warning
 Plug 'roumail/git-extras'

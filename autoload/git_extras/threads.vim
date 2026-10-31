@@ -24,11 +24,7 @@ let s:all = 'query($owner: String!, $name: String!) {'
 
 let s:reply = 'mutation($thread: ID!, $body: String!) {'
       \ . ' addPullRequestReviewThreadReply(input: {pullRequestReviewThreadId: $thread, body: $body}) {'
-      \ . ' comment { id state } } }'
-
-let s:edit = 'mutation($comment: ID!, $body: String!) {'
-      \ . ' updatePullRequestReviewComment(input: {pullRequestReviewCommentId: $comment, body: $body}) {'
-      \ . ' pullRequestReviewComment { state } } }'
+      \ . ' comment { state } } }'
 
 let s:resolve = 'mutation($thread: ID!) {'
       \ . ' %s(input: {threadId: $thread}) { thread { isResolved } } }'
@@ -256,58 +252,37 @@ function! s:goto() abort
   normal! zz
 endfunction
 
-" A markdown buffer above the list, as vim-review's :CommentDraft: :w posts
-" the reply (writing again edits it), :q! before writing drops it
 function! s:reply() abort
   let l:thread = s:thread()
   if empty(l:thread)
     return
   endif
-  let l:list = bufnr('')
   let l:place = s:place(l:thread)
-  execute 'aboveleft' get(g:, 'review_comment_height', 10) . 'new'
-  setlocal buftype=acwrite bufhidden=wipe noswapfile filetype=markdown
-  execute 'file' fnameescape('git-extras://reply/' . l:thread.pr
-        \ . '/' . l:thread.path . (empty(l:place.range) ? '' : ':' . l:place.range))
-  let b:git_extras_reply = {'list': l:list, 'worktree': getbufvar(l:list, 'git_extras_worktree'),
-        \ 'thread': l:thread.id, 'comment': ''}
-  augroup git_extras_reply
-    autocmd! * <buffer>
-    autocmd BufWriteCmd <buffer> call s:post()
-  augroup END
+  call roumail_draft#open('git-extras://reply/' . l:thread.pr . '/' . l:thread.path
+        \ . (empty(l:place.range) ? '' : ':' . l:place.range), [],
+        \ function('s:post', [bufnr(''), b:git_extras_worktree, l:thread.id]),
+        \ {'split': 'aboveleft 10new',
+        \  'saved': 'Reply saved: closing posts it',
+        \  'empty': 'Reply empty: closing posts nothing'})
+  setlocal filetype=markdown
   startinsert
 endfunction
 
-function! s:post() abort
-  let l:r = b:git_extras_reply
-  let l:body = trim(join(getline(1, '$'), "\n"))
-  if empty(l:body)
-    call git_extras#error('empty reply, not posted')
+function! s:post(list, worktree, thread, text) abort
+  let l:data = s:graphql(a:worktree, s:reply, {'thread': a:thread, 'body': a:text})
+  if l:data is v:null
+    " The draft is gone by now
+    call setreg('"', a:text)
+    call git_extras#error('reply not posted; its text is in the unnamed register')
     return
   endif
-  if empty(l:r.comment)
-    let l:data = s:graphql(l:r.worktree, s:reply, {'thread': l:r.thread, 'body': l:body})
-    if l:data is v:null
-      return
-    endif
-    let l:comment = l:data.data.addPullRequestReviewThreadReply.comment
-    let l:r.comment = l:comment.id
-    let l:state = l:comment.state
-  else
-    let l:data = s:graphql(l:r.worktree, s:edit, {'comment': l:r.comment, 'body': l:body})
-    if l:data is v:null
-      return
-    endif
-    let l:state = l:data.data.updatePullRequestReviewComment.pullRequestReviewComment.state
-  endif
-  setlocal nomodified
-  if bufwinid(l:r.list) > 0
-    call win_execute(bufwinid(l:r.list), 'call s:render()')
+  if bufwinid(a:list) > 0
+    call win_execute(bufwinid(a:list), 'call s:render()')
   endif
   " With a review of yours pending on the PR, GitHub adds the reply to it
-  echo l:state ==# 'PENDING'
+  echo l:data.data.addPullRequestReviewThreadReply.comment.state ==# 'PENDING'
         \ ? 'Reply added to your pending review; submit it on GitHub to post it'
-        \ : 'Reply posted; :q to close, or edit and :w again to change it'
+        \ : 'Reply posted'
 endfunction
 
 function! s:toggle_resolved() abort

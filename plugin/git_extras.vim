@@ -13,6 +13,7 @@ let g:loaded_git_extras = 1
 try
   call roumail_requires#check('git-extras', {
         \ 'tpope/vim-fugitive': 'g:loaded_fugitive',
+        \ 'roumail/vim-draft': 'g:loaded_roumail_draft',
         \ })
 catch /^Vim\%((\a\+)\)\=:E117:/
 endtry
