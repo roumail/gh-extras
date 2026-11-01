@@ -143,7 +143,9 @@ function! s:checkout() abort
   call git_extras#list_close()
   checktime
   echo 'Checked out #' . l:number . ' (:BranchDiff, :BranchCommits to review)'
-  call git_extras#comments#check()
+  if exists('g:loaded_review')
+    call review#check()
+  endif
 endfunction
 
 function! s:threads() abort
