@@ -1,16 +1,16 @@
 # gh-extras
 
 GitHub pull requests from Vim, through [gh](https://cli.github.com): list the
-open ones and check one out, read and answer their review threads, and post
+open ones and check one out, look back through the merged ones, read and answer their review threads, and post
 [vim-review](https://github.com/roumail/vim-review)'s comments as a pending
 review. Built on [vim-fugitive](https://github.com/tpope/vim-fugitive); to
 review a branch's diffs, see
 [fugitive-extras](https://github.com/roumail/fugitive-extras).
 
-## Open pull requests
+## Open and merged pull requests
 
 `:PRs [count]` lists the repo's open pull requests, most recently updated first
-(default 20), in a window at the bottom, under a line of column headings:
+(default 20, at most 100), in a window at the bottom, under a line of column headings:
 number, who opened it, title, branch, review state (`draft`, `approved`,
 `changes`, `review`, or `-`) and age.
 
@@ -24,13 +24,43 @@ let g:gh_extras_pr_authors = '~/.config/gh-pr-authors.txt'  " the default
 | Key | What it does |
 | --- | --- |
 | `<CR>` | `gh pr checkout` the PR and close the list. `:BranchDiff` / `:BranchCommits` in fugitive-extras review it. |
-| `/` | Filter as you type, fuzzily on who, title and branch (space-separated words each match, best match first). `<CR>` keeps the filter, `<Esc>` puts the last one back, `<C-u>` clears it. It stays on `r`. |
+| `/` | Filter the list as you type (see below). |
 | `t` | Its review threads, as `:Thread` (see below). |
 | `o` | Open the PR in the browser. |
 | `r` | Refresh. |
 | `q` | Close (`:q` too). |
 
+`:MergedPRs [count]` is the same list for merged pull requests (not those
+closed unmerged), most recently merged first (default 50, at most 100), to
+look up what was done and why. Its last two columns are the merge commit
+(the squash commit, for a squash merge) and how long ago it was merged.
+`/`, `t`, `o`, `r` and `q` are as in `:PRs`; `<CR>` opens the merge commit in
+fugitive, in the window above, instead of checking the PR out. The commit
+must be fetched. The PRs come from the most recently updated merged ones, so
+one merged long ago but commented on since can be among them.
+
 Defined only when [gh](https://cli.github.com) is installed.
+
+### Filtering with `/`
+
+`/` starts a filter: what you type shows at the bottom as `/words`, and the
+list narrows with each key to the PRs matching it, best match first. It
+matches fuzzily on who, title and branch, as fzf does: `fix login` keeps the
+PRs where both words match, each anywhere in who, title or branch, its
+letters in order but not necessarily together. While you type:
+
+| Key | What it does |
+| --- | --- |
+| `<CR>` | Stop typing and keep the filter. The list stays narrowed and its keys (`<CR>`, `t`, `o`, …) work on it. |
+| `<Esc>` or `<C-c>` | Stop typing and drop what you changed: back to the filter you had before pressing `/` (none, the first time). |
+| `<BS>` | Delete the last character. |
+| `<C-w>` | Delete the last word. |
+| `<C-u>` | Delete the whole filter, so every PR shows again. You are still typing: `<CR>` leaves the list unfiltered. |
+
+While a filter is kept, the heading shows how many PRs match out of how many
+were fetched, and the filter, as `(3/20 matching 'login')`. `r` fetches the
+PRs again and applies the same filter to them. To remove it, `/`, `<C-u>`,
+`<CR>`; to change it, `/` and type on from where it was.
 
 ## Review comments
 
