@@ -25,7 +25,7 @@ let s:resolve = 'mutation($thread: ID!) {'
       \ . ' %s(input: {threadId: $thread}) { thread { isResolved } } }'
 
 function! s:graphql(worktree, query, variables) abort
-  let l:out = git_extras#gh(a:worktree, 'api graphql --input -',
+  let l:out = gh_extras#gh(a:worktree, 'api graphql --input -',
         \ json_encode({'query': a:query, 'variables': a:variables}))
   return l:out is v:null ? v:null : json_decode(l:out)
 endfunction
@@ -56,19 +56,19 @@ function! s:waiting(thread, me) abort
 endfunction
 
 function! s:render() abort
-  let l:number = b:git_extras_number
-  let l:variables = {'owner': b:git_extras_repo[0], 'name': b:git_extras_repo[1]}
+  let l:number = b:gh_extras_number
+  let l:variables = {'owner': b:gh_extras_repo[0], 'name': b:gh_extras_repo[1]}
   if l:number
     let l:variables.number = l:number
   endif
-  let l:data = s:graphql(b:git_extras_worktree, l:number ? s:one : s:all, l:variables)
+  let l:data = s:graphql(b:gh_extras_worktree, l:number ? s:one : s:all, l:variables)
   if l:data is v:null
     return
   endif
   let l:me = l:data.data.viewer.login
   let l:repo = l:data.data.repository
   let l:prs = l:number ? [l:repo.pullRequest] : l:repo.pullRequests.nodes
-  let l:branch = FugitiveHead(0, b:git_extras_gitdir)
+  let l:branch = FugitiveHead(0, b:gh_extras_gitdir)
   for l:pr in l:prs
     if !l:number
       call filter(l:pr.reviewThreads.nodes, {_, t -> s:login(l:pr.author) ==? l:me
@@ -79,29 +79,29 @@ function! s:render() abort
       let l:t.head = l:pr.headRefName ==# l:branch ? '' : l:pr.headRefOid
     endfor
   endfor
-  let b:git_extras_fetched = {'me': l:me, 'prs': l:prs}
+  let b:gh_extras_fetched = {'me': l:me, 'prs': l:prs}
   call s:draw()
 endfunction
 
 function! s:draw() abort
-  let l:number = b:git_extras_number
-  let l:me = b:git_extras_fetched.me
-  let b:git_extras_threads = []
-  let b:git_extras_line_thread = [-1]
+  let l:number = b:gh_extras_number
+  let l:me = b:gh_extras_fetched.me
+  let b:gh_extras_threads = []
+  let b:gh_extras_line_thread = [-1]
   let l:lines = []
   let [l:open, l:waiting] = [0, 0]
-  for l:pr in b:git_extras_fetched.prs
+  for l:pr in b:gh_extras_fetched.prs
     let l:all = l:pr.reviewThreads.nodes
     let l:open += len(filter(copy(l:all), '!v:val.isResolved'))
     let l:waiting += len(filter(copy(l:all), 's:waiting(v:val, l:me)'))
-    let l:threads = sort(filter(copy(l:all), 'b:git_extras_resolved || !v:val.isResolved'),
+    let l:threads = sort(filter(copy(l:all), 'b:gh_extras_resolved || !v:val.isResolved'),
           \ {a, b -> a.path ==# b.path ? s:place(a).line - s:place(b).line : a.path ># b.path ? 1 : -1})
     if !l:number
       if empty(l:threads)
         continue
       endif
       call add(l:lines, '#' . l:pr.number . '  ' . l:pr.headRefName . '  ' . l:pr.title)
-      call add(b:git_extras_line_thread, -1)
+      call add(b:gh_extras_line_thread, -1)
     endif
     for l:t in l:threads
       " A thread is one line; = opens it to the conversation, as fugitive's =
@@ -110,11 +110,11 @@ function! s:draw() abort
       let l:head = l:t.path . (empty(l:place.range) ? '' : ':' . l:place.range) . '  '
             \ . (l:t.isResolved ? 'resolved' : s:waiting(l:t, l:me) ? 'your turn' : 'open')
             \ . (s:outdated(l:t) ? ', outdated' : '')
-      if has_key(b:git_extras_open, l:t.id)
+      if has_key(b:gh_extras_open, l:t.id)
         let l:block = [l:head]
         for l:c in l:t.comments.nodes
           " Only you see a pending comment, until you submit its review
-          call add(l:block, '    ' . s:login(l:c.author) . ' (' . git_extras#age(l:c.createdAt)
+          call add(l:block, '    ' . s:login(l:c.author) . ' (' . gh_extras#age(l:c.createdAt)
                 \ . (l:c.state ==# 'PENDING' ? ', pending' : '') . ')')
           call extend(l:block, map(split(l:c.body, '\r\=\n', 1), '"      " . v:val'))
         endfor
@@ -127,8 +127,8 @@ function! s:draw() abort
         call map(l:block, '"  " . v:val')
       endif
       call extend(l:lines, l:block)
-      call extend(b:git_extras_line_thread, repeat([len(b:git_extras_threads)], len(l:block)))
-      call add(b:git_extras_threads, l:t)
+      call extend(b:gh_extras_line_thread, repeat([len(b:gh_extras_threads)], len(l:block)))
+      call add(b:gh_extras_threads, l:t)
     endfor
   endfor
   let l:pos = getpos('.')
@@ -136,49 +136,49 @@ function! s:draw() abort
   silent %delete _
   call setline(1, [(l:number ? '#' . l:number : 'Your threads') . ': ' . l:open . ' open, '
         \ . l:waiting . ' your turn  = open/close  <CR> file  a reply  x resolve  u '
-        \ . (b:git_extras_resolved ? 'hide' : 'show') . ' resolved'
+        \ . (b:gh_extras_resolved ? 'hide' : 'show') . ' resolved'
         \ . '  o browser  r refresh  q close'] + l:lines)
   setlocal nomodifiable nomodified
-  call git_extras#list_fit()
+  call gh_extras#list_fit()
   call setpos('.', l:pos)
 endfunction
 
 " From :PRs, its work tree: fugitive doesn't know it in that buffer
-function! git_extras#threads#open(number, ...) abort
-  let l:worktree = a:0 ? a:1 : git_extras#github_worktree(':Thread')
+function! gh_extras#threads#open(number, ...) abort
+  let l:worktree = a:0 ? a:1 : gh_extras#github_worktree(':Thread')
   if empty(l:worktree)
     return
   endif
-  let l:number = git_extras#pr_number(l:worktree, a:number)
+  let l:number = gh_extras#pr_number(l:worktree, a:number)
   if !empty(l:number)
     call s:open(l:worktree, 'thread', str2nr(l:number))
   endif
 endfunction
 
-function! git_extras#threads#all() abort
-  let l:worktree = git_extras#github_worktree(':Threads')
+function! gh_extras#threads#all() abort
+  let l:worktree = gh_extras#github_worktree(':Threads')
   if !empty(l:worktree)
     call s:open(l:worktree, 'threads', 0)
   endif
 endfunction
 
 function! s:open(worktree, kind, number) abort
-  let l:repo = git_extras#gh(a:worktree, 'repo view --json owner,name --jq ''.owner.login + " " + .name''')
+  let l:repo = gh_extras#gh(a:worktree, 'repo view --json owner,name --jq ''.owner.login + " " + .name''')
   if l:repo is v:null
     return
   endif
-  call git_extras#list_open('git-extras://' . a:kind . '/' . fnamemodify(a:worktree, ':t'))
-  let b:git_extras_worktree = a:worktree
-  let b:git_extras_gitdir = FugitiveExtractGitDir(a:worktree)
-  let b:git_extras_number = a:number
-  let b:git_extras_repo = split(trim(l:repo))
-  let b:git_extras_resolved = get(b:, 'git_extras_resolved', 0)
-  let b:git_extras_open = get(b:, 'git_extras_open', {})
+  call gh_extras#list_open('gh-extras://' . a:kind . '/' . fnamemodify(a:worktree, ':t'))
+  let b:gh_extras_worktree = a:worktree
+  let b:gh_extras_gitdir = FugitiveExtractGitDir(a:worktree)
+  let b:gh_extras_number = a:number
+  let b:gh_extras_repo = split(trim(l:repo))
+  let b:gh_extras_resolved = get(b:, 'gh_extras_resolved', 0)
+  let b:gh_extras_open = get(b:, 'gh_extras_open', {})
   nnoremap <buffer><silent> <CR> <Cmd>call <SID>goto()<CR>
   nnoremap <buffer><silent> = <Cmd>call <SID>toggle_open()<CR>
   nnoremap <buffer><silent> a <Cmd>call <SID>reply()<CR>
   nnoremap <buffer><silent> x <Cmd>call <SID>toggle_resolved()<CR>
-  nnoremap <buffer><silent> u <Cmd>let b:git_extras_resolved = !b:git_extras_resolved <Bar> call <SID>draw()<CR>
+  nnoremap <buffer><silent> u <Cmd>let b:gh_extras_resolved = !b:gh_extras_resolved <Bar> call <SID>draw()<CR>
   nnoremap <buffer><silent> o <Cmd>call <SID>browse()<CR>
   nnoremap <buffer><silent> r <Cmd>call <SID>render()<CR>
   call s:render()
@@ -186,8 +186,8 @@ function! s:open(worktree, kind, number) abort
 endfunction
 
 function! s:thread() abort
-  let l:i = get(b:git_extras_line_thread, line('.') - 1, -1)
-  return l:i < 0 ? {} : b:git_extras_threads[l:i]
+  let l:i = get(b:gh_extras_line_thread, line('.') - 1, -1)
+  return l:i < 0 ? {} : b:gh_extras_threads[l:i]
 endfunction
 
 function! s:toggle_open() abort
@@ -195,14 +195,14 @@ function! s:toggle_open() abort
   if empty(l:thread)
     return
   endif
-  if has_key(b:git_extras_open, l:thread.id)
-    call remove(b:git_extras_open, l:thread.id)
+  if has_key(b:gh_extras_open, l:thread.id)
+    call remove(b:gh_extras_open, l:thread.id)
   else
-    let b:git_extras_open[l:thread.id] = 1
+    let b:gh_extras_open[l:thread.id] = 1
   endif
-  let l:i = index(b:git_extras_threads, l:thread)
+  let l:i = index(b:gh_extras_threads, l:thread)
   call s:draw()
-  call cursor(index(b:git_extras_line_thread, l:i) + 1, 1)
+  call cursor(index(b:gh_extras_line_thread, l:i) + 1, 1)
 endfunction
 
 function! s:goto() abort
@@ -211,17 +211,17 @@ function! s:goto() abort
     return
   endif
   let l:place = s:place(l:thread)
-  let l:worktree = b:git_extras_worktree
+  let l:worktree = b:gh_extras_worktree
   if empty(l:place.commit)
     let l:file = l:worktree . '/' . l:thread.path
   else
     call system('git -C ' . shellescape(l:worktree) . ' cat-file -e '
           \ . l:place.commit . '^{commit}')
     if v:shell_error
-      call git_extras#error('commit ' . l:place.commit[:6] . ' is not here; :Git fetch first')
+      call gh_extras#error('commit ' . l:place.commit[:6] . ' is not here; :Git fetch first')
       return
     endif
-    let l:file = FugitiveFind(l:place.commit . ':' . l:thread.path, b:git_extras_gitdir)
+    let l:file = FugitiveFind(l:place.commit . ':' . l:thread.path, b:gh_extras_gitdir)
   endif
   if winnr('$') == 1
     aboveleft split
@@ -239,9 +239,9 @@ function! s:reply() abort
     return
   endif
   let l:place = s:place(l:thread)
-  call roumail_draft#open('git-extras://reply/' . l:thread.pr . '/' . l:thread.path
+  call roumail_draft#open('gh-extras://reply/' . l:thread.pr . '/' . l:thread.path
         \ . (empty(l:place.range) ? '' : ':' . l:place.range), [],
-        \ function('s:post', [bufnr(''), b:git_extras_worktree, l:thread.id]),
+        \ function('s:post', [bufnr(''), b:gh_extras_worktree, l:thread.id]),
         \ {'split': 'aboveleft 10new',
         \  'saved': 'Reply saved: closing posts it',
         \  'empty': 'Reply empty: closing posts nothing'})
@@ -254,7 +254,7 @@ function! s:post(list, worktree, thread, text) abort
   if l:data is v:null
     " The draft is gone by now
     call setreg('"', a:text)
-    call git_extras#error('reply not posted; its text is in the unnamed register')
+    call gh_extras#error('reply not posted; its text is in the unnamed register')
     return
   endif
   if bufwinid(a:list) > 0
@@ -271,7 +271,7 @@ function! s:toggle_resolved() abort
   if empty(l:thread)
     return
   endif
-  if s:graphql(b:git_extras_worktree,
+  if s:graphql(b:gh_extras_worktree,
         \ printf(s:resolve, l:thread.isResolved ? 'unresolveReviewThread' : 'resolveReviewThread'),
         \ {'thread': l:thread.id}) isnot v:null
     call s:render()
@@ -281,9 +281,9 @@ endfunction
 function! s:browse() abort
   let l:thread = s:thread()
   let l:number = !empty(l:thread) ? l:thread.pr
-        \ : b:git_extras_number ? b:git_extras_number
+        \ : b:gh_extras_number ? b:gh_extras_number
         \ : str2nr(matchstr(getline('.'), '^#\zs\d\+'))
   if l:number
-    call git_extras#gh(b:git_extras_worktree, 'pr view --web ' . l:number)
+    call gh_extras#gh(b:gh_extras_worktree, 'pr view --web ' . l:number)
   endif
 endfunction

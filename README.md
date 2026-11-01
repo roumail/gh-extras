@@ -1,4 +1,4 @@
-# git-extras
+# gh-extras
 
 GitHub pull requests from Vim, through [gh](https://cli.github.com): list the
 open ones and check one out, read and answer their review threads, and post
@@ -18,7 +18,7 @@ Who opened it is their login, or a readable name for it from a file of
 `name:login` lines (`Mira:mira-dev`, logins in any case), read on each refresh.
 
 ```vim
-let g:git_extras_pr_authors = '~/.config/gh-pr-authors.txt'  " the default
+let g:gh_extras_pr_authors = '~/.config/gh-pr-authors.txt'  " the default
 ```
 
 | Key | What it does |
@@ -91,7 +91,7 @@ threads and aren't shown. Defined only when `gh` is installed.
 ## Install
 
 Requires vim-fugitive and [vim-draft](https://github.com/roumail/vim-draft), the buffer replies are written in. With [vim-requires](https://github.com/roumail/vim-requires),
-Vim shows `git-extras: requires …` at startup when one of them isn't loaded.
+Vim shows `gh-extras: requires …` at startup when one of them isn't loaded.
 Its commands need `gh`, and are left out without it.
 `:CommentsSubmit` needs vim-review.
 
@@ -100,5 +100,5 @@ Plug 'tpope/vim-fugitive'
 Plug 'roumail/vim-draft'
 Plug 'roumail/vim-review'    " optional: :CommentsSubmit
 Plug 'roumail/vim-requires'  " optional: the startup warning
-Plug 'roumail/git-extras'
+Plug 'roumail/gh-extras'
 ```

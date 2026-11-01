@@ -5,21 +5,21 @@ function! s:fetch_missing(commit, ref) abort
   endif
 endfunction
 
-function! git_extras#comments#submit(number) abort
-  let l:worktree = git_extras#github_worktree(':CommentsSubmit')
+function! gh_extras#comments#submit(number) abort
+  let l:worktree = gh_extras#github_worktree(':CommentsSubmit')
   if empty(l:worktree)
     return
   endif
   call review#check()
   let l:comments = review#list()
   if empty(l:comments)
-    call git_extras#error('no review comments')
+    call gh_extras#error('no review comments')
     return
   endif
   " Their lines were gone when loaded: they'd land on whatever is there now
   let l:orphaned = len(filter(copy(l:comments), 'get(v:val, "orphaned")'))
   if l:orphaned
-    call git_extras#error(l:orphaned . ' comments whose lines are gone (W in :Comments); comment again where they belong, or drop them, first')
+    call gh_extras#error(l:orphaned . ' comments whose lines are gone (W in :Comments); comment again where they belong, or drop them, first')
     return
   endif
   " The review is of HEAD, the commit you read: GitHub rejects it when HEAD
@@ -29,17 +29,17 @@ function! git_extras#comments#submit(number) abort
   let l:head = FugitiveExecute(['rev-parse', 'HEAD'])
   let l:changed = FugitiveExecute(['diff', '--name-only', 'HEAD', '--'] + l:paths)
   if l:head.exit_status || l:changed.exit_status
-    call git_extras#error('git: cannot read HEAD or its changes')
+    call gh_extras#error('git: cannot read HEAD or its changes')
     return
   endif
   call filter(l:changed.stdout, '!empty(v:val)')
   if !empty(l:changed.stdout)
-    call git_extras#error('comments on files changed since HEAD, so their lines are not its: '
+    call gh_extras#error('comments on files changed since HEAD, so their lines are not its: '
           \ . join(l:changed.stdout, ', ') . '; commit or stash the changes first')
     return
   endif
   let l:cd = 'cd ' . shellescape(l:worktree) . ' && '
-  let l:number = git_extras#pr_number(l:worktree, a:number)
+  let l:number = gh_extras#pr_number(l:worktree, a:number)
   if empty(l:number)
     return
   endif
@@ -51,7 +51,7 @@ function! git_extras#comments#submit(number) abort
   let l:commits = systemlist(l:cd . 'gh api --paginate repos/{owner}/{repo}/pulls/'
         \ . l:number . '/commits --jq ".[].sha"')
   if v:shell_error || empty(l:commits)
-    call git_extras#error('gh: ' . substitute(join(l:commits, ' '), '\n', ' ', 'g'))
+    call gh_extras#error('gh: ' . substitute(join(l:commits, ' '), '\n', ' ', 'g'))
     return
   endif
   let l:commit = l:head.stdout[0]
@@ -60,12 +60,12 @@ function! git_extras#comments#submit(number) abort
     call s:fetch_missing(l:commit, 'pull/' . l:number . '/head')
     let l:diff = FugitiveExecute(['diff', '--name-only', l:commit, l:head.stdout[0], '--'] + l:paths)
     if l:diff.exit_status
-      call git_extras#error('git: cannot compare HEAD with the PR head ' . l:commit[:6])
+      call gh_extras#error('git: cannot compare HEAD with the PR head ' . l:commit[:6])
       return
     endif
     call filter(l:diff.stdout, '!empty(v:val)')
     if !empty(l:diff.stdout)
-      call git_extras#error('HEAD ' . l:head.stdout[0][:6] . ' is not in PR ' . l:number
+      call gh_extras#error('HEAD ' . l:head.stdout[0][:6] . ' is not in PR ' . l:number
             \ . ', and its head ' . l:commit[:6] . ' has these commented files different: '
             \ . join(l:diff.stdout, ', ') . '; push, or check out the PR')
       return
@@ -75,7 +75,7 @@ function! git_extras#comments#submit(number) abort
   " GitHub rejects a comment whose lines aren't in a hunk of the PR's diff at
   " the commit (merge-base with its base..commit, 3 lines of context, as
   " GitHub shows it), or whose range spans two hunks
-  let l:base = git_extras#gh(l:worktree, 'api repos/{owner}/{repo}/pulls/'
+  let l:base = gh_extras#gh(l:worktree, 'api repos/{owner}/{repo}/pulls/'
         \ . l:number . ' --jq .base.sha')
   if l:base is v:null
     return
@@ -86,7 +86,7 @@ function! git_extras#comments#submit(number) abort
   let l:diff = l:fork.exit_status ? l:fork : FugitiveExecute(['diff', '-U3',
         \ '--no-color', '--no-ext-diff', l:fork.stdout[0], l:commit, '--'] + l:paths)
   if l:diff.exit_status
-    call git_extras#error('git: cannot read the diff of PR ' . l:number . ' at ' . l:commit[:6])
+    call gh_extras#error('git: cannot read the diff of PR ' . l:number . ' at ' . l:commit[:6])
     return
   endif
   let l:hunks = {}
@@ -111,7 +111,7 @@ function! git_extras#comments#submit(number) abort
     endif
   endfor
   if !empty(l:outside)
-    call git_extras#error(len(l:outside) . ' comments on lines outside the PR''s diff, which GitHub rejects: '
+    call gh_extras#error(len(l:outside) . ' comments on lines outside the PR''s diff, which GitHub rejects: '
           \ . join(l:outside, ', ') . '; move them into a changed hunk, or drop them (dd in :Comments)')
     return
   endif
@@ -121,7 +121,7 @@ function! git_extras#comments#submit(number) abort
         \   {_, c -> extend({'path': c.path, 'body': c.body, 'line': c.end, 'side': 'RIGHT'},
         \     c.end > c.start ? {'start_line': c.start, 'start_side': 'RIGHT'} : {})})}))
   if v:shell_error
-    call git_extras#error('gh: ' . substitute(trim(l:out), '\n', ' ', 'g'))
+    call gh_extras#error('gh: ' . substitute(trim(l:out), '\n', ' ', 'g'))
     return
   endif
   echo 'Pending review of ' . l:commit[:6] . ' with ' . len(l:comments)

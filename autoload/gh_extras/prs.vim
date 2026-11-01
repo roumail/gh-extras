@@ -27,8 +27,8 @@ function! s:format(widths, num, who, title, branch, state, age) abort
 endfunction
 
 function! s:render() abort
-  let l:out = git_extras#gh(b:git_extras_worktree, 'api graphql -F owner={owner} -F name={repo}'
-        \ . ' -F count=' . b:git_extras_count . ' -f query=' . shellescape(s:query))
+  let l:out = gh_extras#gh(b:gh_extras_worktree, 'api graphql -F owner={owner} -F name={repo}'
+        \ . ' -F count=' . b:gh_extras_count . ' -f query=' . shellescape(s:query))
   if l:out is v:null
     return
   endif
@@ -37,7 +37,7 @@ function! s:render() abort
   " login -> readable name, from name:login lines; keyed lowercase: logins
   " aren't case-sensitive
   let l:names = {}
-  let l:file = expand(get(g:, 'git_extras_pr_authors', '~/.config/gh-pr-authors.txt'))
+  let l:file = expand(get(g:, 'gh_extras_pr_authors', '~/.config/gh-pr-authors.txt'))
   for l:line in filereadable(l:file) ? readfile(l:file) : []
     let l:m = matchlist(l:line, '^\s*\([^:#[:space:]][^:]\{-}\)\s*:\s*\([^:[:space:]]\+\)\s*$')
     if !empty(l:m)
@@ -48,8 +48,8 @@ function! s:render() abort
     let l:login = type(l:pr.author) == v:t_dict ? l:pr.author.login : 'ghost'
     let l:pr._who = get(l:names, tolower(l:login), l:login)
   endfor
-  let b:git_extras_prs = l:prs
-  let b:git_extras_widths = [
+  let b:gh_extras_prs = l:prs
+  let b:gh_extras_widths = [
         \ min([20, max([3] + map(copy(l:prs), 'strdisplaywidth(v:val._who)'))]),
         \ min([60, max([5] + map(copy(l:prs), 'strdisplaywidth(v:val.title)'))]),
         \ min([30, max([6] + map(copy(l:prs), 'strdisplaywidth(v:val.headRefName)'))])]
@@ -59,30 +59,30 @@ endfunction
 
 function! s:draw() abort
   " As fzf: space-separated words each match, best first
-  let l:prs = empty(b:git_extras_filter) ? b:git_extras_prs
-        \ : matchfuzzy(b:git_extras_prs, b:git_extras_filter,
+  let l:prs = empty(b:gh_extras_filter) ? b:gh_extras_prs
+        \ : matchfuzzy(b:gh_extras_prs, b:gh_extras_filter,
         \   {'text_cb': {pr -> pr._who . ' ' . pr.title . ' ' . pr.headRefName}})
   setlocal modifiable
   silent %delete _
-  call setline(1, ['Open PRs (' . len(l:prs) . (empty(b:git_extras_filter) ? ''
-        \   : '/' . len(b:git_extras_prs) . ' matching ' . string(b:git_extras_filter))
+  call setline(1, ['Open PRs (' . len(l:prs) . (empty(b:gh_extras_filter) ? ''
+        \   : '/' . len(b:gh_extras_prs) . ' matching ' . string(b:gh_extras_filter))
         \ . ')  <CR> checkout  / filter  t threads  o browser  r refresh  q close',
-        \ s:format(b:git_extras_widths, '#', 'who', 'title', 'branch', 'state', 'age')]
-        \ + map(copy(l:prs), {_, pr -> s:format(b:git_extras_widths, '#' . pr.number, pr._who,
+        \ s:format(b:gh_extras_widths, '#', 'who', 'title', 'branch', 'state', 'age')]
+        \ + map(copy(l:prs), {_, pr -> s:format(b:gh_extras_widths, '#' . pr.number, pr._who,
         \     pr.title, pr.headRefName, pr.isDraft ? 'draft'
         \     : get(s:states, type(pr.reviewDecision) == v:t_string ? pr.reviewDecision : '', '-'),
-        \     git_extras#age(pr.updatedAt))}))
+        \     gh_extras#age(pr.updatedAt))}))
   setlocal nomodifiable nomodified
-  call git_extras#list_fit()
+  call gh_extras#list_fit()
 endfunction
 
 function! s:filter() abort
-  let l:before = b:git_extras_filter
+  let l:before = b:gh_extras_filter
   while 1
     call s:draw()
     call cursor(3, 1)
     redraw
-    echo '/' . b:git_extras_filter
+    echo '/' . b:gh_extras_filter
     try
       let l:key = getchar()
     catch /^Vim:Interrupt$/
@@ -92,33 +92,33 @@ function! s:filter() abort
     if l:key ==# "\<CR>"
       break
     elseif l:key ==# "\<Esc>"
-      let b:git_extras_filter = l:before
+      let b:gh_extras_filter = l:before
       call s:draw()
       call cursor(3, 1)
       break
     elseif l:key ==# "\<BS>" || l:key ==# "\<C-h>"
-      let b:git_extras_filter = strcharpart(b:git_extras_filter, 0, strchars(b:git_extras_filter) - 1)
+      let b:gh_extras_filter = strcharpart(b:gh_extras_filter, 0, strchars(b:gh_extras_filter) - 1)
     elseif l:key ==# "\<C-w>"
-      let b:git_extras_filter = substitute(b:git_extras_filter, '\S*\s*$', '', '')
+      let b:gh_extras_filter = substitute(b:gh_extras_filter, '\S*\s*$', '', '')
     elseif l:key ==# "\<C-u>"
-      let b:git_extras_filter = ''
+      let b:gh_extras_filter = ''
     elseif l:key =~# '^\p$'
-      let b:git_extras_filter .= l:key
+      let b:gh_extras_filter .= l:key
     endif
   endwhile
   redraw
   echo ''
 endfunction
 
-function! git_extras#prs#open(count) abort
-  let l:worktree = git_extras#github_worktree(':PRs')
+function! gh_extras#prs#open(count) abort
+  let l:worktree = gh_extras#github_worktree(':PRs')
   if empty(l:worktree)
     return
   endif
-  call git_extras#list_open('git-extras://prs/' . fnamemodify(l:worktree, ':t'))
-  let b:git_extras_worktree = l:worktree
-  let b:git_extras_count = empty(a:count) ? 20 : a:count
-  let b:git_extras_filter = ''
+  call gh_extras#list_open('gh-extras://prs/' . fnamemodify(l:worktree, ':t'))
+  let b:gh_extras_worktree = l:worktree
+  let b:gh_extras_count = empty(a:count) ? 20 : a:count
+  let b:gh_extras_filter = ''
   nnoremap <buffer><silent> <CR> <Cmd>call <SID>checkout()<CR>
   nnoremap <buffer><silent> / <Cmd>call <SID>filter()<CR>
   nnoremap <buffer><silent> t <Cmd>call <SID>threads()<CR>
@@ -136,11 +136,11 @@ function! s:checkout() abort
   if !l:number
     return
   endif
-  let l:worktree = b:git_extras_worktree
-  if git_extras#gh(l:worktree, 'pr checkout ' . l:number) is v:null
+  let l:worktree = b:gh_extras_worktree
+  if gh_extras#gh(l:worktree, 'pr checkout ' . l:number) is v:null
     return
   endif
-  call git_extras#list_close()
+  call gh_extras#list_close()
   checktime
   echo 'Checked out #' . l:number . ' (:BranchDiff, :BranchCommits to review)'
   if exists('g:loaded_review')
@@ -151,13 +151,13 @@ endfunction
 function! s:threads() abort
   let l:number = s:number()
   if l:number
-    call git_extras#threads#open(l:number, b:git_extras_worktree)
+    call gh_extras#threads#open(l:number, b:gh_extras_worktree)
   endif
 endfunction
 
 function! s:browse() abort
   let l:number = s:number()
   if l:number
-    call git_extras#gh(b:git_extras_worktree, 'pr view --web ' . l:number)
+    call gh_extras#gh(b:gh_extras_worktree, 'pr view --web ' . l:number)
   endif
 endfunction
