@@ -309,7 +309,6 @@ function! gh_extras#threads#reply_draft(text) abort
         \  'saved': 'Reply saved: closing posts it',
         \  'empty': 'Reply empty: closing posts nothing'})
   setlocal filetype=markdown
-  startinsert!
 endfunction
 
 function! s:post(list, worktree, thread, text) abort
