@@ -106,12 +106,37 @@ PR's threads are under a line with its number, branch and title.
 | --- | --- |
 | `<CR>` | Open the file at the thread's line, in the window above: from the work tree when the PR is the branch checked out, else as of the PR's last commit. An **outdated** thread (its lines changed since) opens the file as of the commit it was made on. Commits must be fetched. |
 | `=` | Open the thread to its conversation, or close it to one line. |
-| `a` | Reply in a markdown buffer above the list, a [vim-draft](https://github.com/roumail/vim-draft) draft: `:w` saves it, closing it (`:wq`, or `:q` after `:w`) posts what was last saved, and an empty one or `:q!` before any `:w` posts nothing. If posting fails, the reply's text is in the unnamed register. While you have a pending review on the PR, GitHub adds the reply to it instead, and says so. |
+| `a` | Reply in a markdown buffer above the list, as `:ReplyDraft` (see below). |
 | `x` | Resolve the thread, or unresolve a resolved one. |
 | `u` | Show or hide resolved threads. |
 | `o` | Open the thread's PR in the browser. |
 | `r` | Refresh. |
 | `q` | Close (`:q` too). |
+
+### Replying
+
+Replies are written as [vim-review](https://github.com/roumail/vim-review)'s
+comments and [vim-prompts](https://github.com/roumail/vim-prompts)' asks are:
+on the command line, or in a draft when they are longer. In a thread list, on
+a thread's line:
+
+| Command | What it does |
+| --- | --- |
+| `:Reply [text]` | Post `text` as a reply to the thread; prompts unless it is given. Leaving the prompt with `<Esc>` keeps what you typed: `:Reply` or `:ReplyDraft` on the same thread goes on from it. |
+| `:ReplyDraft [text]` (`a`) | Write the reply in a markdown buffer above the list (`g:gh_extras_reply_height`, default `g:review_comment_height`, else 10), starting with `text` if given, else with what you left at the `:Reply` prompt on that thread. A [vim-draft](https://github.com/roumail/vim-draft) draft: `:w` saves it, closing it (`:wq`, or `:q` after `:w`) posts what was last saved, and an empty one or `:q!` before any `:w` posts nothing. |
+
+If posting fails, the reply's text is in the unnamed register. While you have
+a pending review on the PR, GitHub adds the reply to it instead, and says so.
+
+To take a reply you're typing to a draft, change `Reply` to `ReplyDraft` on
+the command line (`<C-b>` goes to its start) and press Enter. Besides `a`, two
+`<Plug>` mappings are there to bind the same keys as vim-review's:
+`<Plug>(gh-extras-reply)` leaves `:Reply ` on the command line to finish, and
+`<Plug>(gh-extras-reply-draft)` is `:ReplyDraft`.
+
+```vim
+autocmd BufEnter gh-extras://thread* nmap <buffer> <leader>cc <Plug>(gh-extras-reply)
+```
 
 The first 100 threads of a PR are shown, with the first 100 comments of each;
 `:Threads` looks at the 50 most recently updated open PRs, and the first 50

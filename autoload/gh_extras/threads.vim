@@ -176,7 +176,9 @@ function! s:open(worktree, kind, number) abort
   let b:gh_extras_open = get(b:, 'gh_extras_open', {})
   nnoremap <buffer><silent> <CR> <Cmd>call <SID>goto()<CR>
   nnoremap <buffer><silent> = <Cmd>call <SID>toggle_open()<CR>
-  nnoremap <buffer><silent> a <Cmd>call <SID>reply()<CR>
+  command! -buffer -nargs=* Reply call gh_extras#threads#reply(<q-args>)
+  command! -buffer -nargs=* ReplyDraft call gh_extras#threads#reply_draft(<q-args>)
+  nnoremap <buffer><silent> a <Cmd>ReplyDraft<CR>
   nnoremap <buffer><silent> x <Cmd>call <SID>toggle_resolved()<CR>
   nnoremap <buffer><silent> u <Cmd>let b:gh_extras_resolved = !b:gh_extras_resolved <Bar> call <SID>draw()<CR>
   nnoremap <buffer><silent> o <Cmd>call <SID>browse()<CR>
@@ -233,20 +235,82 @@ function! s:goto() abort
   normal! zz
 endfunction
 
-function! s:reply() abort
+" Text typed at the :Reply prompt and left with <Esc>, by thread id, to start
+" from when replying to that thread again
+let s:unsent = {}
+
+" The thread under the cursor and its label, path:range; {} when not on one
+function! s:target() abort
+  if !exists('b:gh_extras_threads')
+    call gh_extras#error('not in a :Thread or :Threads list')
+    return {}
+  endif
   let l:thread = s:thread()
   if empty(l:thread)
+    call gh_extras#error('not on a thread')
+    return {}
+  endif
+  let l:range = s:place(l:thread).range
+  return {'thread': l:thread,
+        \ 'label': l:thread.path . (empty(l:range) ? '' : ':' . l:range)}
+endfunction
+
+" :Reply: posts text, or what is typed at the prompt, to the thread under the
+" cursor. What was typed and left with <Esc> is kept for the next :Reply or
+" :ReplyDraft on that thread, so you can look something up and go on.
+function! gh_extras#threads#reply(text) abort
+  let l:target = s:target()
+  if empty(l:target)
     return
   endif
-  let l:place = s:place(l:thread)
-  call roumail_draft#open('gh-extras://reply/' . l:thread.pr . '/' . l:thread.path
-        \ . (empty(l:place.range) ? '' : ':' . l:place.range), [],
-        \ function('s:post', [bufnr(''), b:gh_extras_worktree, l:thread.id]),
-        \ {'split': 'aboveleft 10new',
+  let l:id = l:target.thread.id
+  let l:text = a:text
+  if empty(l:text)
+    let s:typed = get(s:unsent, l:id, '')
+    " CmdlineLeave is too late: <Esc> has emptied the line by then
+    augroup gh_extras_reply
+      autocmd!
+      autocmd CmdlineChanged @ let s:typed = getcmdline()
+    augroup END
+    try
+      let l:text = input('Reply ' . l:target.label . ': ', s:typed)
+    finally
+      autocmd! gh_extras_reply
+    endtry
+    if empty(l:text) && !empty(s:typed)
+      let s:unsent[l:id] = s:typed
+      redraw
+      echo 'Reply kept: :Reply or :ReplyDraft on ' . l:target.label . ' goes on from it'
+      return
+    endif
+  endif
+  silent! call remove(s:unsent, l:id)
+  if empty(trim(l:text))
+    return
+  endif
+  redraw
+  call s:post(bufnr(''), b:gh_extras_worktree, l:id, trim(l:text))
+endfunction
+
+" :ReplyDraft (a): the reply in a vim-draft draft above the list, starting
+" with text, else with what was left at the :Reply prompt on that thread
+function! gh_extras#threads#reply_draft(text) abort
+  let l:target = s:target()
+  if empty(l:target)
+    return
+  endif
+  let l:id = l:target.thread.id
+  let l:text = empty(a:text) ? get(s:unsent, l:id, '') : a:text
+  silent! call remove(s:unsent, l:id)
+  call roumail_draft#open('gh-extras://reply/' . l:target.thread.pr . '/' . l:target.label,
+        \ empty(l:text) ? [] : [l:text],
+        \ function('s:post', [bufnr(''), b:gh_extras_worktree, l:id]),
+        \ {'split': 'aboveleft '
+        \     . get(g:, 'gh_extras_reply_height', get(g:, 'review_comment_height', 10)) . 'new',
         \  'saved': 'Reply saved: closing posts it',
         \  'empty': 'Reply empty: closing posts nothing'})
   setlocal filetype=markdown
-  startinsert
+  startinsert!
 endfunction
 
 function! s:post(list, worktree, thread, text) abort

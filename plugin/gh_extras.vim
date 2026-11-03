@@ -25,3 +25,10 @@ if executable('gh')
   " number)
   command! -nargs=? CommentsSubmit call gh_extras#comments#submit(<q-args>)
 endif
+
+" In a :Thread or :Threads list, where a is :ReplyDraft. To reply from the
+" command line, as vim-review's :Comment: <Plug>(gh-extras-reply) leaves
+" :Reply on it to finish, and changing it to :ReplyDraft takes the text to
+" a draft
+nnoremap <Plug>(gh-extras-reply) :<C-u>Reply<Space>
+nnoremap <Plug>(gh-extras-reply-draft) <Cmd>call gh_extras#threads#reply_draft('')<CR>
