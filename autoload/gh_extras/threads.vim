@@ -135,7 +135,7 @@ function! s:draw() abort
   setlocal modifiable
   silent %delete _
   call setline(1, [(l:number ? '#' . l:number : 'Your threads') . ': ' . l:open . ' open, '
-        \ . l:waiting . ' your turn  = open/close  <CR> file  a reply  x resolve  u '
+        \ . l:waiting . ' your turn  = open/close  <CR> file  :Reply  x resolve  u '
         \ . (b:gh_extras_resolved ? 'hide' : 'show') . ' resolved'
         \ . '  o browser  r refresh  q close'] + l:lines)
   setlocal nomodifiable nomodified
@@ -178,7 +178,6 @@ function! s:open(worktree, kind, number) abort
   nnoremap <buffer><silent> = <Cmd>call <SID>toggle_open()<CR>
   command! -buffer -nargs=* Reply call gh_extras#threads#reply(<q-args>)
   command! -buffer -nargs=* ReplyDraft call gh_extras#threads#reply_draft(<q-args>)
-  nnoremap <buffer><silent> a <Cmd>ReplyDraft<CR>
   nnoremap <buffer><silent> x <Cmd>call <SID>toggle_resolved()<CR>
   nnoremap <buffer><silent> u <Cmd>let b:gh_extras_resolved = !b:gh_extras_resolved <Bar> call <SID>draw()<CR>
   nnoremap <buffer><silent> o <Cmd>call <SID>browse()<CR>

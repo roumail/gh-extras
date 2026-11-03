@@ -26,9 +26,9 @@ if executable('gh')
   command! -nargs=? CommentsSubmit call gh_extras#comments#submit(<q-args>)
 endif
 
-" In a :Thread or :Threads list, where a is :ReplyDraft. To reply from the
-" command line, as vim-review's :Comment: <Plug>(gh-extras-reply) leaves
-" :Reply on it to finish, and changing it to :ReplyDraft takes the text to
-" a draft
+" In a :Thread or :Threads list, to bind the keys of vim-review's :Comment
+" and :CommentDraft: <Plug>(gh-extras-reply) leaves :Reply on the command line
+" to finish, and changing it to :ReplyDraft takes the text to a draft;
+" <Plug>(gh-extras-reply-draft) is :ReplyDraft
 nnoremap <Plug>(gh-extras-reply) :<C-u>Reply<Space>
 nnoremap <Plug>(gh-extras-reply-draft) <Cmd>call gh_extras#threads#reply_draft('')<CR>
