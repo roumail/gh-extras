@@ -132,8 +132,7 @@ threads and aren't shown. Defined only when `gh` is installed.
 
 ## Install
 
-Requires vim-fugitive, [vim-draft](https://github.com/roumail/vim-draft), the buffer replies are written in, and [vim-lists](https://github.com/roumail/vim-lists), its lists. With [vim-requires](https://github.com/roumail/vim-requires),
-Vim shows `gh-extras: requires …` at startup when one of them isn't loaded.
+Requires vim-fugitive, [vim-draft](https://github.com/roumail/vim-draft), the buffer replies are written in, and [vim-lists](https://github.com/roumail/vim-lists), its lists.
 Its commands need `gh`, and are left out without it.
 `:CommentsSubmit` needs fugitive-extras.
 
@@ -143,7 +142,6 @@ Plug 'roumail/vim-draft'
 Plug 'roumail/vim-lists'
 Plug 'roumail/vim-review'    " optional, with fugitive-extras: :CommentsSubmit
 Plug 'roumail/fugitive-extras'
-Plug 'roumail/vim-requires'  " optional: the startup warning
 Plug 'roumail/gh-extras'
 ```
 

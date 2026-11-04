@@ -3,16 +3,6 @@ if exists('g:loaded_gh_extras')
 endif
 let g:loaded_gh_extras = 1
 
-" roumail/vim-requires is optional
-try
-  call roumail_requires#check('gh-extras', {
-        \ 'tpope/vim-fugitive': 'g:loaded_fugitive',
-        \ 'roumail/vim-draft': 'g:loaded_roumail_draft',
-        \ 'roumail/vim-lists': 'g:loaded_roumail_lists',
-        \ })
-catch /^Vim\%((\a\+)\)\=:E117:/
-endtry
-
 if executable('gh')
   " Open PRs (default 20), latest first; <CR> checks one out
   command! -nargs=? PRs call gh_extras#prs#open(<q-args>, 0)
