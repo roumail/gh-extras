@@ -201,8 +201,8 @@ function! s:checkout() abort
   call gh_extras#list_close()
   checktime
   echo 'Checked out #' . l:number . ' (:BranchDiff, :BranchCommits to review)'
-  if exists('g:loaded_review')
-    call review#check()
+  if exists('g:loaded_fugitive_extras')
+    call fugitive_extras#comments#check()
   endif
 endfunction
 

@@ -10,8 +10,8 @@ function! gh_extras#comments#submit(number) abort
   if empty(l:worktree)
     return
   endif
-  call review#check()
-  let l:comments = review#list()
+  call fugitive_extras#comments#check()
+  let l:comments = fugitive_extras#comments#list()
   if empty(l:comments)
     call gh_extras#error('no review comments')
     return

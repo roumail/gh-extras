@@ -2,8 +2,8 @@
 
 GitHub pull requests from Vim, through [gh](https://cli.github.com): list the
 open ones and check one out, look back through the merged ones, read and answer their review threads, and post
-[vim-review](https://github.com/roumail/vim-review)'s comments as a pending
-review. Built on [vim-fugitive](https://github.com/tpope/vim-fugitive); to
+[fugitive-extras](https://github.com/roumail/fugitive-extras)' review
+comments as a pending review. Built on [vim-fugitive](https://github.com/tpope/vim-fugitive); to
 review a branch's diffs, see
 [fugitive-extras](https://github.com/roumail/fugitive-extras).
 
@@ -64,15 +64,13 @@ PRs again and applies the same filter to them. To remove it, `/`, `<C-u>`,
 
 ## Review comments
 
-With [vim-review](https://github.com/roumail/vim-review) installed, its review
-comments post to the pull request. Checking a PR out from `:PRs` with unsaved
-comments warns once; `:CommentsSubmit` warns too. With
-[fugitive-extras](https://github.com/roumail/fugitive-extras), comments go on the
-branch side of its diffs and are saved per branch.
+With [fugitive-extras](https://github.com/roumail/fugitive-extras) installed,
+its review comments post to the pull request. Checking a PR out from `:PRs` with unsaved
+comments warns once; `:CommentsSubmit` warns too.
 
 | Command | What it does |
 | --- | --- |
-| `:CommentsSubmit [number]` | Post the comments as one **pending** review of `HEAD` on the branch's PR, or PR `number`, through `gh api`. Only you see it until you submit it on GitHub. Refused while any comment's lines are gone (`W` in `:Comments`, see vim-review's anchors). Defined only when `gh` is installed. |
+| `:CommentsSubmit [number]` | Post the comments as one **pending** review of `HEAD` on the branch's PR, or PR `number`, through `gh api`. Only you see it until you submit it on GitHub. Refused while any comment's lines are gone (`W` in `:Comments`, see fugitive-extras' anchors). Defined only when `gh` is installed. |
 
 The review is of the commit you read: `HEAD`, so check the PR out (`:PRs`,
 `<CR>`) to review it. If the author pushes more before you submit, the
@@ -96,7 +94,7 @@ closes it again, as fugitive's `=` does a file's diff; opened threads stay
 open on `r`. `pending` marks a comment of a review you haven't submitted,
 which only you see. The heading counts the open threads and those that are **your
 turn**: open, with someone else's comment last. Resolved threads are hidden
-until `u`. Doesn't need vim-review.
+until `u`. Doesn't need fugitive-extras.
 
 `:Threads` is the same list for the threads you're in across the repo's open
 PRs: those with a comment of yours, and every thread on a PR you opened. Each
@@ -114,7 +112,7 @@ PR's threads are under a line with its number, branch and title.
 
 ### Replying
 
-Replies are written as [vim-review](https://github.com/roumail/vim-review)'s
+Replies are written as [fugitive-extras](https://github.com/roumail/fugitive-extras)'
 comments and [vim-prompts](https://github.com/roumail/vim-prompts)' asks are:
 on the command line, or in a draft when they are longer. In a thread list, on
 a thread's line:
@@ -122,14 +120,14 @@ a thread's line:
 | Command | What it does |
 | --- | --- |
 | `:Reply [text]` | Post `text` as a reply to the thread; prompts unless it is given. Leaving the prompt with `<Esc>` keeps what you typed: `:Reply` or `:ReplyDraft` on the same thread goes on from it. |
-| `:ReplyDraft [text]` | Write the reply in a markdown buffer above the list (`g:gh_extras_reply_height`, default `g:review_comment_height`, else 10), starting with `text` if given, else with what you left at the `:Reply` prompt on that thread. A [vim-draft](https://github.com/roumail/vim-draft) draft: `:w` saves it, closing it (`:wq`, or `:q` after `:w`) posts what was last saved, and an empty one or `:q!` before any `:w` posts nothing. |
+| `:ReplyDraft [text]` | Write the reply in a markdown buffer above the list (`g:gh_extras_reply_height`, default 10), starting with `text` if given, else with what you left at the `:Reply` prompt on that thread. A [vim-draft](https://github.com/roumail/vim-draft) draft: `:w` saves it, closing it (`:wq`, or `:q` after `:w`) posts what was last saved, and an empty one or `:q!` before any `:w` posts nothing. |
 
 If posting fails, the reply's text is in the unnamed register. While you have
 a pending review on the PR, GitHub adds the reply to it instead, and says so.
 
 To take a reply you're typing to a draft, change `Reply` to `ReplyDraft` on
 the command line (`<C-b>` goes to its start) and press Enter. Two `<Plug>`
-mappings bind them to keys, the same as vim-review's, say:
+mappings bind them to keys, the same as fugitive-extras' comment keys, say:
 `<Plug>(gh-extras-reply)` leaves `:Reply ` on the command line to finish, and
 `<Plug>(gh-extras-reply-draft)` is `:ReplyDraft`.
 
@@ -148,12 +146,13 @@ threads and aren't shown. Defined only when `gh` is installed.
 Requires vim-fugitive and [vim-draft](https://github.com/roumail/vim-draft), the buffer replies are written in. With [vim-requires](https://github.com/roumail/vim-requires),
 Vim shows `gh-extras: requires …` at startup when one of them isn't loaded.
 Its commands need `gh`, and are left out without it.
-`:CommentsSubmit` needs vim-review.
+`:CommentsSubmit` needs fugitive-extras.
 
 ```vim
 Plug 'tpope/vim-fugitive'
 Plug 'roumail/vim-draft'
-Plug 'roumail/vim-review'    " optional: :CommentsSubmit
+Plug 'roumail/vim-review'    " optional, with fugitive-extras: :CommentsSubmit
+Plug 'roumail/fugitive-extras'
 Plug 'roumail/vim-requires'  " optional: the startup warning
 Plug 'roumail/gh-extras'
 ```

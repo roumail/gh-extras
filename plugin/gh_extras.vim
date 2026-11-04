@@ -21,12 +21,12 @@ if executable('gh')
   command! -nargs=? Thread call gh_extras#threads#open(<q-args>)
   " The review threads you're in, across the open PRs
   command! Threads call gh_extras#threads#all()
-  " Post vim-review's comments as a pending review on the branch's PR (or
+  " Post fugitive-extras' review comments as a pending review on the branch's PR (or
   " number)
   command! -nargs=? CommentsSubmit call gh_extras#comments#submit(<q-args>)
 endif
 
-" In a :Thread or :Threads list, to bind the keys of vim-review's :Comment
+" In a :Thread or :Threads list, to bind the keys of fugitive-extras' :Comment
 " and :CommentDraft: <Plug>(gh-extras-reply) leaves :Reply on the command line
 " to finish, and changing it to :ReplyDraft takes the text to a draft;
 " <Plug>(gh-extras-reply-draft) is :ReplyDraft

@@ -305,7 +305,7 @@ function! gh_extras#threads#reply_draft(text) abort
         \ empty(l:text) ? [] : [l:text],
         \ function('s:post', [bufnr(''), b:gh_extras_worktree, l:id]),
         \ {'split': 'aboveleft '
-        \     . get(g:, 'gh_extras_reply_height', get(g:, 'review_comment_height', 10)) . 'new',
+        \     . get(g:, 'gh_extras_reply_height', 10) . 'new',
         \  'saved': 'Reply saved: closing posts it',
         \  'empty': 'Reply empty: closing posts nothing'})
   setlocal filetype=markdown
