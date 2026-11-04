@@ -27,7 +27,7 @@ let g:gh_extras_pr_authors = '~/.config/gh-pr-authors.txt'  " the default
 | `/` | Filter the list as you type (see below). |
 | `t` | Its review threads, as `:Thread` (see below). |
 | `o` | Open the PR in the browser. |
-| `r` | Refresh. |
+| `r` | Refresh. The cursor stays on its PR. |
 | `q` | Close (`:q` too). |
 
 `:MergedPRs [count]` is the same list for merged pull requests (not those
@@ -43,11 +43,13 @@ Defined only when [gh](https://cli.github.com) is installed.
 
 ### Filtering with `/`
 
-`/` starts a filter: what you type shows at the bottom as `/words`, and the
-list narrows with each key to the PRs matching it, best match first. It
-matches fuzzily on who, title and branch, as fzf does: `fix login` keeps the
-PRs where both words match, each anywhere in who, title or branch, its
-letters in order but not necessarily together. While you type:
+`/` starts a filter, in `:PRs` and `:MergedPRs` and in the thread lists (see
+below): what you type shows at the bottom as `/words`, and the list narrows
+with each key to what matches it. It matches fuzzily, as fzf does: `fix login`
+keeps what both words match, its letters in order but not necessarily
+together. PRs match on who, title and branch, best match first; threads on
+their file, their PR's number, branch and title, and who wrote in them, and
+stay in file order. While you type:
 
 | Key | What it does |
 | --- | --- |
@@ -55,12 +57,12 @@ letters in order but not necessarily together. While you type:
 | `<Esc>` or `<C-c>` | Stop typing and drop what you changed: back to the filter you had before pressing `/` (none, the first time). |
 | `<BS>` | Delete the last character. |
 | `<C-w>` | Delete the last word. |
-| `<C-u>` | Delete the whole filter, so every PR shows again. You are still typing: `<CR>` leaves the list unfiltered. |
+| `<C-u>` | Delete the whole filter, so everything shows again. You are still typing: `<CR>` leaves the list unfiltered. |
 
-While a filter is kept, the heading shows how many PRs match out of how many
-were fetched, and the filter, as `(3/20 matching 'login')`. `r` fetches the
-PRs again and applies the same filter to them. To remove it, `/`, `<C-u>`,
-`<CR>`; to change it, `/` and type on from where it was.
+While a filter is kept, the heading says how many match, and the filter, as
+`Open PRs (20), 3 matching 'login'`. `r` fetches again and applies the same
+filter. To remove it, `/`, `<C-u>`, `<CR>`; to change it, `/` and type on
+from where it was.
 
 ## Review comments
 
@@ -107,7 +109,8 @@ PR's threads are under a line with its number, branch and title.
 | `x` | Resolve the thread, or unresolve a resolved one. |
 | `u` | Show or hide resolved threads. |
 | `o` | Open the thread's PR in the browser. |
-| `r` | Refresh. |
+| `/` | Filter the list as you type (see [Filtering](#filtering-with-)). |
+| `r` | Refresh. The cursor stays on its thread. |
 | `q` | Close (`:q` too). |
 
 ### Replying
@@ -155,4 +158,18 @@ Plug 'roumail/vim-review'    " optional, with fugitive-extras: :CommentsSubmit
 Plug 'roumail/fugitive-extras'
 Plug 'roumail/vim-requires'  " optional: the startup warning
 Plug 'roumail/gh-extras'
+```
+
+## Development
+
+The lists (`:PRs`, `:MergedPRs`, `:Thread`, `:Threads`) are one module,
+`autoload/gh_extras/list.vim`: a window at the bottom, a heading with the
+list's keys, `/`, `r` and `q`, the cursor kept on its item. A list gives it
+its items, how they show and its own keys; nothing in it is about GitHub, so
+another plugin's lists can use it.
+
+Tests run headless, with a stand-in `gh` (`test/bin/gh`):
+
+```sh
+vim -Nu NONE -i NONE -Es -S test/run.vim   # TEST=<pattern> runs some
 ```

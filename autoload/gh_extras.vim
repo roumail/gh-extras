@@ -59,27 +59,3 @@ function! gh_extras#github_worktree(command) abort
   endif
   return l:worktree
 endfunction
-
-function! gh_extras#list_open(name) abort
-  " A window of its own, so q and :q close only the list, never a window of yours
-  let l:winnr = bufwinnr('^' . a:name . '$')
-  if l:winnr > 0
-    execute l:winnr . 'wincmd w'
-  else
-    execute 'silent botright split' fnameescape(a:name)
-  endif
-  setlocal buftype=nofile bufhidden=wipe noswapfile nowrap nobuflisted winfixheight
-  nnoremap <buffer><silent> q <Cmd>call gh_extras#list_close()<CR>
-endfunction
-
-function! gh_extras#list_fit() abort
-  execute 'resize' min([line('$'), 15])
-endfunction
-
-function! gh_extras#list_close() abort
-  if winnr('$') > 1
-    close
-  else
-    enew
-  endif
-endfunction

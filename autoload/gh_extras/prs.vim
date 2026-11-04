@@ -32,12 +32,12 @@ function! s:format(widths, num, who, title, branch, state, age) abort
         \ s:pad(a:title, a:widths[1]), s:pad(a:branch, a:widths[2]), a:state, a:age)
 endfunction
 
-function! s:render() abort
+function! s:fetch() abort
   let l:out = gh_extras#gh(b:gh_extras_worktree, 'api graphql -F owner={owner} -F name={repo}'
         \ . ' -F count=' . b:gh_extras_count
         \ . ' -f query=' . shellescape(b:gh_extras_merged ? s:merged_query : s:open_query))
   if l:out is v:null
-    return
+    return v:null
   endif
   " Parsed here, so jq isn't needed
   let l:prs = json_decode(l:out).data.repository.pullRequests.nodes
@@ -58,70 +58,27 @@ function! s:render() abort
     let l:login = type(l:pr.author) == v:t_dict ? l:pr.author.login : 'ghost'
     let l:pr._who = get(l:names, tolower(l:login), l:login)
   endfor
-  let b:gh_extras_prs = l:prs
   let b:gh_extras_widths = [
         \ min([20, max([3] + map(copy(l:prs), 'strdisplaywidth(v:val._who)'))]),
         \ min([60, max([5] + map(copy(l:prs), 'strdisplaywidth(v:val.title)'))]),
         \ min([30, max([6] + map(copy(l:prs), 'strdisplaywidth(v:val.headRefName)'))])]
-  call s:draw()
-  call cursor(3, 1)
+  return l:prs
 endfunction
 
-function! s:draw() abort
-  " As fzf: space-separated words each match, best first
-  let l:prs = empty(b:gh_extras_filter) ? b:gh_extras_prs
-        \ : matchfuzzy(b:gh_extras_prs, b:gh_extras_filter,
-        \   {'text_cb': {pr -> pr._who . ' ' . pr.title . ' ' . pr.headRefName}})
-  setlocal modifiable
-  silent %delete _
+function! s:heading(prs) abort
   let l:merged = b:gh_extras_merged
-  call setline(1, [(l:merged ? 'Merged' : 'Open') . ' PRs (' . len(l:prs)
-        \ . (empty(b:gh_extras_filter) ? ''
-        \   : '/' . len(b:gh_extras_prs) . ' matching ' . string(b:gh_extras_filter))
-        \ . ')  <CR> ' . (l:merged ? 'commit' : 'checkout')
-        \ . '  / filter  t threads  o browser  r refresh  q close',
+  return [(l:merged ? 'Merged' : 'Open') . ' PRs (' . len(a:prs) . ')',
         \ s:format(b:gh_extras_widths, '#', 'who', 'title', 'branch',
         \   l:merged ? 'commit' : 'state', l:merged ? 'merged' : 'age')]
-        \ + map(copy(l:prs), {_, pr -> s:format(b:gh_extras_widths, '#' . pr.number, pr._who,
-        \     pr.title, pr.headRefName, l:merged ? s:merge_commit(pr)[:6] : pr.isDraft ? 'draft'
-        \     : get(s:states, type(pr.reviewDecision) == v:t_string ? pr.reviewDecision : '', '-'),
-        \     gh_extras#age(l:merged ? pr.mergedAt : pr.updatedAt))}))
-  setlocal nomodifiable nomodified
-  call gh_extras#list_fit()
 endfunction
 
-function! s:filter() abort
-  let l:before = b:gh_extras_filter
-  while 1
-    call s:draw()
-    call cursor(3, 1)
-    redraw
-    echo '/' . b:gh_extras_filter
-    try
-      let l:key = getchar()
-    catch /^Vim:Interrupt$/
-      let l:key = "\<Esc>"
-    endtry
-    let l:key = type(l:key) == v:t_number ? nr2char(l:key) : l:key
-    if l:key ==# "\<CR>"
-      break
-    elseif l:key ==# "\<Esc>"
-      let b:gh_extras_filter = l:before
-      call s:draw()
-      call cursor(3, 1)
-      break
-    elseif l:key ==# "\<BS>" || l:key ==# "\<C-h>"
-      let b:gh_extras_filter = strcharpart(b:gh_extras_filter, 0, strchars(b:gh_extras_filter) - 1)
-    elseif l:key ==# "\<C-w>"
-      let b:gh_extras_filter = substitute(b:gh_extras_filter, '\S*\s*$', '', '')
-    elseif l:key ==# "\<C-u>"
-      let b:gh_extras_filter = ''
-    elseif l:key =~# '^\p$'
-      let b:gh_extras_filter .= l:key
-    endif
-  endwhile
-  redraw
-  echo ''
+function! s:rows(prs) abort
+  let l:merged = b:gh_extras_merged
+  return map(copy(a:prs), {_, pr -> {'item': pr, 'lines': [s:format(b:gh_extras_widths,
+        \ '#' . pr.number, pr._who, pr.title, pr.headRefName,
+        \ l:merged ? s:merge_commit(pr)[:6] : pr.isDraft ? 'draft'
+        \ : get(s:states, type(pr.reviewDecision) == v:t_string ? pr.reviewDecision : '', '-'),
+        \ gh_extras#age(l:merged ? pr.mergedAt : pr.updatedAt))]}})
 endfunction
 
 function! s:merge_commit(pr) abort
@@ -134,25 +91,25 @@ function! gh_extras#prs#open(count, merged) abort
   if empty(l:worktree)
     return
   endif
-  let l:gitdir = FugitiveGitDir()
-  call gh_extras#list_open('gh-extras://' . (a:merged ? 'merged-prs/' : 'prs/')
-        \ . fnamemodify(l:worktree, ':t'))
-  let b:gh_extras_worktree = l:worktree
-  let b:gh_extras_gitdir = l:gitdir
-  let b:gh_extras_merged = a:merged
-  " GitHub returns at most 100 at a time
-  let b:gh_extras_count = min([100, empty(a:count) ? (a:merged ? 50 : 20) : str2nr(a:count)])
-  let b:gh_extras_filter = ''
-  nnoremap <buffer><silent> <CR> <Cmd>call <SID>enter()<CR>
-  nnoremap <buffer><silent> / <Cmd>call <SID>filter()<CR>
-  nnoremap <buffer><silent> t <Cmd>call <SID>threads()<CR>
-  nnoremap <buffer><silent> o <Cmd>call <SID>browse()<CR>
-  nnoremap <buffer><silent> r <Cmd>call <SID>render()<CR>
-  call s:render()
+  call gh_extras#list#open('gh-extras://' . (a:merged ? 'merged-prs/' : 'prs/')
+        \ . fnamemodify(l:worktree, ':t'), {
+        \ 'fetch': function('s:fetch'), 'heading': function('s:heading'),
+        \ 'rows': function('s:rows'), 'id': {pr -> pr.number},
+        \ 'match': {pr -> pr._who . ' ' . pr.title . ' ' . pr.headRefName},
+        \ 'keys': [
+        \   {'key': '<CR>', 'hint': a:merged ? 'commit' : 'checkout', 'call': function('s:enter')},
+        \   {'key': 't', 'hint': 'threads', 'call': function('s:threads')},
+        \   {'key': 'o', 'hint': 'browser', 'call': function('s:browse')}]}, {
+        \ 'gh_extras_worktree': l:worktree,
+        \ 'gh_extras_gitdir': FugitiveGitDir(),
+        \ 'gh_extras_merged': a:merged,
+        "\ GitHub returns at most 100 at a time
+        \ 'gh_extras_count': min([100, empty(a:count) ? (a:merged ? 50 : 20) : str2nr(a:count)]),
+        \ })
 endfunction
 
 function! s:number() abort
-  return str2nr(matchstr(getline('.'), '^#\zs\d\+'))
+  return get(gh_extras#list#item(), 'number', 0)
 endfunction
 
 function! s:enter() abort
@@ -165,11 +122,11 @@ endfunction
 
 " The merge commit (or squash commit) in fugitive, in the window above
 function! s:show_commit() abort
-  let l:number = s:number()
-  let l:pr = get(filter(copy(b:gh_extras_prs), 'v:val.number == l:number'), 0, {})
+  let l:pr = gh_extras#list#item()
   if empty(l:pr)
     return
   endif
+  let l:number = l:pr.number
   let l:oid = s:merge_commit(l:pr)
   if empty(l:oid)
     call gh_extras#error('#' . l:number . ' has no merge commit')
@@ -198,7 +155,7 @@ function! s:checkout() abort
   if gh_extras#gh(l:worktree, 'pr checkout ' . l:number) is v:null
     return
   endif
-  call gh_extras#list_close()
+  call gh_extras#list#close()
   checktime
   echo 'Checked out #' . l:number . ' (:BranchDiff, :BranchCommits to review)'
   if exists('g:loaded_fugitive_extras')

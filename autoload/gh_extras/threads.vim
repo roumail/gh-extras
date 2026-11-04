@@ -55,7 +55,7 @@ function! s:waiting(thread, me) abort
         \ && s:login(a:thread.comments.nodes[-1].author) !=? a:me
 endfunction
 
-function! s:render() abort
+function! s:fetch() abort
   let l:number = b:gh_extras_number
   let l:variables = {'owner': b:gh_extras_repo[0], 'name': b:gh_extras_repo[1]}
   if l:number
@@ -63,7 +63,7 @@ function! s:render() abort
   endif
   let l:data = s:graphql(b:gh_extras_worktree, l:number ? s:one : s:all, l:variables)
   if l:data is v:null
-    return
+    return v:null
   endif
   let l:me = l:data.data.viewer.login
   let l:repo = l:data.data.repository
@@ -80,28 +80,65 @@ function! s:render() abort
     endfor
   endfor
   let b:gh_extras_fetched = {'me': l:me, 'prs': l:prs}
-  call s:draw()
+  return s:shown()
 endfunction
 
-function! s:draw() abort
-  let l:number = b:gh_extras_number
+" The threads listed: resolved ones only after u
+function! s:shown() abort
+  let l:threads = []
+  for l:pr in b:gh_extras_fetched.prs
+    call extend(l:threads, filter(copy(l:pr.reviewThreads.nodes),
+          \ 'b:gh_extras_resolved || !v:val.isResolved'))
+  endfor
+  return l:threads
+endfunction
+
+function! s:toggle_shown() abort
+  let b:gh_extras_resolved = !b:gh_extras_resolved
+  call gh_extras#list#set(s:shown())
+endfunction
+
+function! s:heading(threads) abort
   let l:me = b:gh_extras_fetched.me
-  let b:gh_extras_threads = []
-  let b:gh_extras_line_thread = [-1]
-  let l:lines = []
   let [l:open, l:waiting] = [0, 0]
   for l:pr in b:gh_extras_fetched.prs
     let l:all = l:pr.reviewThreads.nodes
     let l:open += len(filter(copy(l:all), '!v:val.isResolved'))
     let l:waiting += len(filter(copy(l:all), 's:waiting(v:val, l:me)'))
-    let l:threads = sort(filter(copy(l:all), 'b:gh_extras_resolved || !v:val.isResolved'),
+  endfor
+  return [(b:gh_extras_number ? '#' . b:gh_extras_number : 'Your threads') . ': '
+        \ . l:open . ' open, ' . l:waiting . ' your turn']
+endfunction
+
+" What / matches a thread on: its file, its PR, and who wrote in it
+function! s:match(thread) abort
+  let l:pr = s:pr(a:thread.pr)
+  return a:thread.path . ' #' . l:pr.number . ' ' . l:pr.headRefName . ' ' . l:pr.title
+        \ . ' ' . join(map(copy(a:thread.comments.nodes), 's:login(v:val.author)'))
+endfunction
+
+function! s:pr(number) abort
+  return filter(copy(b:gh_extras_fetched.prs), 'v:val.number == a:number')[0]
+endfunction
+
+" Threads by PR, then by file and line, whatever order the filter left them in
+function! s:rows(threads) abort
+  let l:number = b:gh_extras_number
+  let l:me = b:gh_extras_fetched.me
+  let l:listed = {}
+  for l:t in a:threads
+    let l:listed[l:t.id] = 1
+  endfor
+  let l:rows = []
+  for l:pr in b:gh_extras_fetched.prs
+    let l:threads = sort(filter(copy(l:pr.reviewThreads.nodes), 'has_key(l:listed, v:val.id)'),
           \ {a, b -> a.path ==# b.path ? s:place(a).line - s:place(b).line : a.path ># b.path ? 1 : -1})
+    if empty(l:threads)
+      continue
+    endif
     if !l:number
-      if empty(l:threads)
-        continue
-      endif
-      call add(l:lines, '#' . l:pr.number . '  ' . l:pr.headRefName . '  ' . l:pr.title)
-      call add(b:gh_extras_line_thread, -1)
+      call add(l:rows, {'lines': ['#' . l:pr.number . '  ' . l:pr.headRefName . '  ' . l:pr.title],
+            \ 'pr': l:pr.number})
     endif
     for l:t in l:threads
       " A thread is one line; = opens it to the conversation, as fugitive's =
@@ -111,36 +148,25 @@ function! s:draw() abort
             \ . (l:t.isResolved ? 'resolved' : s:waiting(l:t, l:me) ? 'your turn' : 'open')
             \ . (s:outdated(l:t) ? ', outdated' : '')
       if has_key(b:gh_extras_open, l:t.id)
-        let l:block = [l:head]
+        let l:lines = [l:head]
         for l:c in l:t.comments.nodes
           " Only you see a pending comment, until you submit its review
-          call add(l:block, '    ' . s:login(l:c.author) . ' (' . gh_extras#age(l:c.createdAt)
+          call add(l:lines, '    ' . s:login(l:c.author) . ' (' . gh_extras#age(l:c.createdAt)
                 \ . (l:c.state ==# 'PENDING' ? ', pending' : '') . ')')
-          call extend(l:block, map(split(l:c.body, '\r\=\n', 1), '"      " . v:val'))
+          call extend(l:lines, map(split(l:c.body, '\r\=\n', 1), '"      " . v:val'))
         endfor
       else
         let l:last = l:t.comments.nodes[-1]
-        let l:block = [l:head . '  (' . len(l:t.comments.nodes) . ')  ' . s:login(l:last.author)
+        let l:lines = [l:head . '  (' . len(l:t.comments.nodes) . ')  ' . s:login(l:last.author)
               \ . ': ' . get(split(l:last.body, '\r\=\n'), 0, '')]
       endif
       if !l:number
-        call map(l:block, '"  " . v:val')
+        call map(l:lines, '"  " . v:val')
       endif
-      call extend(l:lines, l:block)
-      call extend(b:gh_extras_line_thread, repeat([len(b:gh_extras_threads)], len(l:block)))
-      call add(b:gh_extras_threads, l:t)
+      call add(l:rows, {'lines': l:lines, 'item': l:t})
     endfor
   endfor
-  let l:pos = getpos('.')
-  setlocal modifiable
-  silent %delete _
-  call setline(1, [(l:number ? '#' . l:number : 'Your threads') . ': ' . l:open . ' open, '
-        \ . l:waiting . ' your turn  = open/close  <CR> file  :Reply  x resolve  u '
-        \ . (b:gh_extras_resolved ? 'hide' : 'show') . ' resolved'
-        \ . '  o browser  r refresh  q close'] + l:lines)
-  setlocal nomodifiable nomodified
-  call gh_extras#list_fit()
-  call setpos('.', l:pos)
+  return l:rows
 endfunction
 
 " From :PRs, its work tree: fugitive doesn't know it in that buffer
@@ -167,32 +193,32 @@ function! s:open(worktree, kind, number) abort
   if l:repo is v:null
     return
   endif
-  call gh_extras#list_open('gh-extras://' . a:kind . '/' . fnamemodify(a:worktree, ':t'))
-  let b:gh_extras_worktree = a:worktree
-  let b:gh_extras_gitdir = FugitiveExtractGitDir(a:worktree)
-  let b:gh_extras_number = a:number
-  let b:gh_extras_repo = split(trim(l:repo))
-  let b:gh_extras_resolved = get(b:, 'gh_extras_resolved', 0)
-  let b:gh_extras_open = get(b:, 'gh_extras_open', {})
-  nnoremap <buffer><silent> <CR> <Cmd>call <SID>goto()<CR>
-  nnoremap <buffer><silent> = <Cmd>call <SID>toggle_open()<CR>
+  let l:name = 'gh-extras://' . a:kind . '/' . fnamemodify(a:worktree, ':t')
+  " Opened threads and u stay as they were when the list is opened again
+  let l:was = bufexists(l:name) ? getbufvar(l:name, '', {}) : {}
+  call gh_extras#list#open(l:name, {
+        \ 'fetch': function('s:fetch'), 'heading': function('s:heading'),
+        \ 'rows': function('s:rows'), 'id': {t -> t.id}, 'match': function('s:match'),
+        \ 'keys': [
+        \   {'key': '=', 'hint': 'open/close', 'call': function('s:toggle_open')},
+        \   {'key': '<CR>', 'hint': 'file', 'call': function('s:goto')},
+        \   {'key': ':Reply'},
+        \   {'key': 'x', 'hint': 'resolve', 'call': function('s:toggle_resolved')},
+        \   {'key': 'u', 'hint': 'resolved', 'call': function('s:toggle_shown')},
+        \   {'key': 'o', 'hint': 'browser', 'call': function('s:browse')}]}, {
+        \ 'gh_extras_worktree': a:worktree,
+        \ 'gh_extras_gitdir': FugitiveExtractGitDir(a:worktree),
+        \ 'gh_extras_number': a:number,
+        \ 'gh_extras_repo': split(trim(l:repo)),
+        \ 'gh_extras_resolved': get(l:was, 'gh_extras_resolved', 0),
+        \ 'gh_extras_open': get(l:was, 'gh_extras_open', {}),
+        \ })
   command! -buffer -nargs=* Reply call gh_extras#threads#reply(<q-args>)
   command! -buffer -nargs=* ReplyDraft call gh_extras#threads#reply_draft(<q-args>)
-  nnoremap <buffer><silent> x <Cmd>call <SID>toggle_resolved()<CR>
-  nnoremap <buffer><silent> u <Cmd>let b:gh_extras_resolved = !b:gh_extras_resolved <Bar> call <SID>draw()<CR>
-  nnoremap <buffer><silent> o <Cmd>call <SID>browse()<CR>
-  nnoremap <buffer><silent> r <Cmd>call <SID>render()<CR>
-  call s:render()
-  call cursor(2, 1)
-endfunction
-
-function! s:thread() abort
-  let l:i = get(b:gh_extras_line_thread, line('.') - 1, -1)
-  return l:i < 0 ? {} : b:gh_extras_threads[l:i]
 endfunction
 
 function! s:toggle_open() abort
-  let l:thread = s:thread()
+  let l:thread = gh_extras#list#item()
   if empty(l:thread)
     return
   endif
@@ -201,13 +227,11 @@ function! s:toggle_open() abort
   else
     let b:gh_extras_open[l:thread.id] = 1
   endif
-  let l:i = index(b:gh_extras_threads, l:thread)
-  call s:draw()
-  call cursor(index(b:gh_extras_line_thread, l:i) + 1, 1)
+  call gh_extras#list#draw()
 endfunction
 
 function! s:goto() abort
-  let l:thread = s:thread()
+  let l:thread = gh_extras#list#item()
   if empty(l:thread)
     return
   endif
@@ -240,11 +264,11 @@ let s:unsent = {}
 
 " The thread under the cursor and its label, path:range; {} when not on one
 function! s:target() abort
-  if !exists('b:gh_extras_threads')
+  if !exists('b:gh_extras_number')
     call gh_extras#error('not in a :Thread or :Threads list')
     return {}
   endif
-  let l:thread = s:thread()
+  let l:thread = gh_extras#list#item()
   if empty(l:thread)
     call gh_extras#error('not on a thread')
     return {}
@@ -320,7 +344,7 @@ function! s:post(list, worktree, thread, text) abort
     return
   endif
   if bufwinid(a:list) > 0
-    call win_execute(bufwinid(a:list), 'call s:render()')
+    call win_execute(bufwinid(a:list), 'call gh_extras#list#refresh()')
   endif
   " With a review of yours pending on the PR, GitHub adds the reply to it
   echo l:data.data.addPullRequestReviewThreadReply.comment.state ==# 'PENDING'
@@ -329,22 +353,22 @@ function! s:post(list, worktree, thread, text) abort
 endfunction
 
 function! s:toggle_resolved() abort
-  let l:thread = s:thread()
+  let l:thread = gh_extras#list#item()
   if empty(l:thread)
     return
   endif
   if s:graphql(b:gh_extras_worktree,
         \ printf(s:resolve, l:thread.isResolved ? 'unresolveReviewThread' : 'resolveReviewThread'),
         \ {'thread': l:thread.id}) isnot v:null
-    call s:render()
+    call gh_extras#list#refresh()
   endif
 endfunction
 
 function! s:browse() abort
-  let l:thread = s:thread()
+  let l:thread = gh_extras#list#item()
   let l:number = !empty(l:thread) ? l:thread.pr
         \ : b:gh_extras_number ? b:gh_extras_number
-        \ : str2nr(matchstr(getline('.'), '^#\zs\d\+'))
+        \ : get(gh_extras#list#row(), 'pr', 0)
   if l:number
     call gh_extras#gh(b:gh_extras_worktree, 'pr view --web ' . l:number)
   endif

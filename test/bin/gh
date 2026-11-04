@@ -1,0 +1,33 @@
+#!/bin/sh
+# A stand-in for gh in test/run.vim: canned answers to what gh-extras asks
+case "$*" in
+  'repo view'*) echo 'o r' ;;
+  *'states: OPEN, first: $count'*) cat <<'JSON'
+{"data":{"repository":{"pullRequests":{"nodes":[
+{"number":7,"title":"Fix login","headRefName":"fix-login","author":{"login":"mira"},"isDraft":false,"updatedAt":"2026-11-01T00:00:00Z","reviewDecision":"APPROVED"},
+{"number":8,"title":"Add search","headRefName":"search","author":{"login":"sam"},"isDraft":true,"updatedAt":"2026-11-02T00:00:00Z","reviewDecision":null}]}}}}
+JSON
+  ;;
+  'api graphql --input -')
+    input=$(cat)
+    case "$input" in
+      *mutation*resolveReviewThread*) echo '{"data":{"resolveReviewThread":{"thread":{"isResolved":true}}}}' ;;
+      *) pr=$(cat <<'JSON'
+{"number":7,"title":"Fix login","headRefName":"fix-login","headRefOid":"abc","author":{"login":"mira"},"reviewThreads":{"nodes":[
+{"id":"T1","isResolved":false,"isOutdated":false,"path":"b.py","line":3,"startLine":null,"originalLine":3,"originalStartLine":null,
+ "comments":{"nodes":[{"author":{"login":"me"},"body":"why?","createdAt":"2026-11-01T00:00:00Z","state":"SUBMITTED","originalCommit":{"oid":"abc"}},
+                      {"author":{"login":"mira"},"body":"because\nreasons","createdAt":"2026-11-02T00:00:00Z","state":"SUBMITTED","originalCommit":{"oid":"abc"}}]}},
+{"id":"T2","isResolved":true,"isOutdated":false,"path":"a.py","line":1,"startLine":null,"originalLine":1,"originalStartLine":null,
+ "comments":{"nodes":[{"author":{"login":"sam"},"body":"done","createdAt":"2026-11-01T00:00:00Z","state":"SUBMITTED","originalCommit":{"oid":"abc"}}]}},
+{"id":"T3","isResolved":false,"isOutdated":false,"path":"a.py","line":9,"startLine":null,"originalLine":9,"originalStartLine":null,
+ "comments":{"nodes":[{"author":{"login":"me"},"body":"nit","createdAt":"2026-11-01T00:00:00Z","state":"SUBMITTED","originalCommit":{"oid":"abc"}}]}}]}}
+JSON
+)
+        case "$input" in
+          *'pullRequests('*) printf '%s\n' '{"data":{"viewer":{"login":"me"},"repository":{"pullRequests":{"nodes":['"$pr"']}}}}' ;;
+          *) printf '%s\n' '{"data":{"viewer":{"login":"me"},"repository":{"pullRequest":'"$pr"'}}}' ;;
+        esac
+      ;;
+    esac ;;
+  *) echo "fake gh: $*" >&2; exit 1 ;;
+esac
