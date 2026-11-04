@@ -91,7 +91,7 @@ function! gh_extras#prs#open(count, merged) abort
   if empty(l:worktree)
     return
   endif
-  call gh_extras#list#open('gh-extras://' . (a:merged ? 'merged-prs/' : 'prs/')
+  call roumail_lists#open('gh-extras://' . (a:merged ? 'merged-prs/' : 'prs/')
         \ . fnamemodify(l:worktree, ':t'), {
         \ 'fetch': function('s:fetch'), 'heading': function('s:heading'),
         \ 'rows': function('s:rows'), 'id': {pr -> pr.number},
@@ -109,7 +109,7 @@ function! gh_extras#prs#open(count, merged) abort
 endfunction
 
 function! s:number() abort
-  return get(gh_extras#list#item(), 'number', 0)
+  return get(roumail_lists#item(), 'number', 0)
 endfunction
 
 function! s:enter() abort
@@ -122,7 +122,7 @@ endfunction
 
 " The merge commit (or squash commit) in fugitive, in the window above
 function! s:show_commit() abort
-  let l:pr = gh_extras#list#item()
+  let l:pr = roumail_lists#item()
   if empty(l:pr)
     return
   endif
@@ -155,7 +155,7 @@ function! s:checkout() abort
   if gh_extras#gh(l:worktree, 'pr checkout ' . l:number) is v:null
     return
   endif
-  call gh_extras#list#close()
+  call roumail_lists#close()
   checktime
   echo 'Checked out #' . l:number . ' (:BranchDiff, :BranchCommits to review)'
   if exists('g:loaded_fugitive_extras')

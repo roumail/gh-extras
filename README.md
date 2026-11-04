@@ -43,26 +43,12 @@ Defined only when [gh](https://cli.github.com) is installed.
 
 ### Filtering with `/`
 
-`/` starts a filter, in `:PRs` and `:MergedPRs` and in the thread lists (see
-below): what you type shows at the bottom as `/words`, and the list narrows
-with each key to what matches it. It matches fuzzily, as fzf does: `fix login`
-keeps what both words match, its letters in order but not necessarily
-together. PRs match on who, title and branch, best match first; threads on
-their file, their PR's number, branch and title, and who wrote in them, and
-stay in file order. While you type:
-
-| Key | What it does |
-| --- | --- |
-| `<CR>` | Stop typing and keep the filter. The list stays narrowed and its keys (`<CR>`, `t`, `o`, …) work on it. |
-| `<Esc>` or `<C-c>` | Stop typing and drop what you changed: back to the filter you had before pressing `/` (none, the first time). |
-| `<BS>` | Delete the last character. |
-| `<C-w>` | Delete the last word. |
-| `<C-u>` | Delete the whole filter, so everything shows again. You are still typing: `<CR>` leaves the list unfiltered. |
-
-While a filter is kept, the heading says how many match, and the filter, as
-`Open PRs (20), 3 matching 'login'`. `r` fetches again and applies the same
-filter. To remove it, `/`, `<C-u>`, `<CR>`; to change it, `/` and type on
-from where it was.
+`/` filters a list as you type, fuzzily, as fzf does, in `:PRs` and
+`:MergedPRs` and in the thread lists (see below); its keys are
+[vim-lists](https://github.com/roumail/vim-lists)', the same in every list.
+PRs match on who, title and branch, best match first; threads on their file,
+their PR's number, branch and title, and who wrote in them, and stay in file
+order.
 
 ## Review comments
 
@@ -146,7 +132,7 @@ threads and aren't shown. Defined only when `gh` is installed.
 
 ## Install
 
-Requires vim-fugitive and [vim-draft](https://github.com/roumail/vim-draft), the buffer replies are written in. With [vim-requires](https://github.com/roumail/vim-requires),
+Requires vim-fugitive, [vim-draft](https://github.com/roumail/vim-draft), the buffer replies are written in, and [vim-lists](https://github.com/roumail/vim-lists), its lists. With [vim-requires](https://github.com/roumail/vim-requires),
 Vim shows `gh-extras: requires …` at startup when one of them isn't loaded.
 Its commands need `gh`, and are left out without it.
 `:CommentsSubmit` needs fugitive-extras.
@@ -154,6 +140,7 @@ Its commands need `gh`, and are left out without it.
 ```vim
 Plug 'tpope/vim-fugitive'
 Plug 'roumail/vim-draft'
+Plug 'roumail/vim-lists'
 Plug 'roumail/vim-review'    " optional, with fugitive-extras: :CommentsSubmit
 Plug 'roumail/fugitive-extras'
 Plug 'roumail/vim-requires'  " optional: the startup warning
@@ -162,13 +149,9 @@ Plug 'roumail/gh-extras'
 
 ## Development
 
-The lists (`:PRs`, `:MergedPRs`, `:Thread`, `:Threads`) are one module,
-`autoload/gh_extras/list.vim`: a window at the bottom, a heading with the
-list's keys, `/`, `r` and `q`, the cursor kept on its item. A list gives it
-its items, how they show and its own keys; nothing in it is about GitHub, so
-another plugin's lists can use it.
-
-Tests run headless, with a stand-in `gh` (`test/bin/gh`):
+The lists are [vim-lists](https://github.com/roumail/vim-lists)': gh-extras
+gives each its items, how they show and its own keys. Tests run headless, with
+a stand-in `gh` (`test/bin/gh`):
 
 ```sh
 vim -Nu NONE -i NONE -Es -S test/run.vim   # TEST=<pattern> runs some

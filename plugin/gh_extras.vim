@@ -8,6 +8,7 @@ try
   call roumail_requires#check('gh-extras', {
         \ 'tpope/vim-fugitive': 'g:loaded_fugitive',
         \ 'roumail/vim-draft': 'g:loaded_roumail_draft',
+        \ 'roumail/vim-lists': 'g:loaded_roumail_lists',
         \ })
 catch /^Vim\%((\a\+)\)\=:E117:/
 endtry

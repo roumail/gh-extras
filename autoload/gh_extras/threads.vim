@@ -95,7 +95,7 @@ endfunction
 
 function! s:toggle_shown() abort
   let b:gh_extras_resolved = !b:gh_extras_resolved
-  call gh_extras#list#set(s:shown())
+  call roumail_lists#set(s:shown())
 endfunction
 
 function! s:heading(threads) abort
@@ -196,7 +196,7 @@ function! s:open(worktree, kind, number) abort
   let l:name = 'gh-extras://' . a:kind . '/' . fnamemodify(a:worktree, ':t')
   " Opened threads and u stay as they were when the list is opened again
   let l:was = bufexists(l:name) ? getbufvar(l:name, '', {}) : {}
-  call gh_extras#list#open(l:name, {
+  call roumail_lists#open(l:name, {
         \ 'fetch': function('s:fetch'), 'heading': function('s:heading'),
         \ 'rows': function('s:rows'), 'id': {t -> t.id}, 'match': function('s:match'),
         \ 'keys': [
@@ -218,7 +218,7 @@ function! s:open(worktree, kind, number) abort
 endfunction
 
 function! s:toggle_open() abort
-  let l:thread = gh_extras#list#item()
+  let l:thread = roumail_lists#item()
   if empty(l:thread)
     return
   endif
@@ -227,11 +227,11 @@ function! s:toggle_open() abort
   else
     let b:gh_extras_open[l:thread.id] = 1
   endif
-  call gh_extras#list#draw()
+  call roumail_lists#draw()
 endfunction
 
 function! s:goto() abort
-  let l:thread = gh_extras#list#item()
+  let l:thread = roumail_lists#item()
   if empty(l:thread)
     return
   endif
@@ -268,7 +268,7 @@ function! s:target() abort
     call gh_extras#error('not in a :Thread or :Threads list')
     return {}
   endif
-  let l:thread = gh_extras#list#item()
+  let l:thread = roumail_lists#item()
   if empty(l:thread)
     call gh_extras#error('not on a thread')
     return {}
@@ -344,7 +344,7 @@ function! s:post(list, worktree, thread, text) abort
     return
   endif
   if bufwinid(a:list) > 0
-    call win_execute(bufwinid(a:list), 'call gh_extras#list#refresh()')
+    call win_execute(bufwinid(a:list), 'call roumail_lists#refresh()')
   endif
   " With a review of yours pending on the PR, GitHub adds the reply to it
   echo l:data.data.addPullRequestReviewThreadReply.comment.state ==# 'PENDING'
@@ -353,22 +353,22 @@ function! s:post(list, worktree, thread, text) abort
 endfunction
 
 function! s:toggle_resolved() abort
-  let l:thread = gh_extras#list#item()
+  let l:thread = roumail_lists#item()
   if empty(l:thread)
     return
   endif
   if s:graphql(b:gh_extras_worktree,
         \ printf(s:resolve, l:thread.isResolved ? 'unresolveReviewThread' : 'resolveReviewThread'),
         \ {'thread': l:thread.id}) isnot v:null
-    call gh_extras#list#refresh()
+    call roumail_lists#refresh()
   endif
 endfunction
 
 function! s:browse() abort
-  let l:thread = gh_extras#list#item()
+  let l:thread = roumail_lists#item()
   let l:number = !empty(l:thread) ? l:thread.pr
         \ : b:gh_extras_number ? b:gh_extras_number
-        \ : get(gh_extras#list#row(), 'pr', 0)
+        \ : get(roumail_lists#row(), 'pr', 0)
   if l:number
     call gh_extras#gh(b:gh_extras_worktree, 'pr view --web ' . l:number)
   endif

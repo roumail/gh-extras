@@ -2,16 +2,20 @@
 "   vim -Nu NONE -i NONE -Es -S test/run.vim
 " Prints one line per test and exits non-zero when one fails; TEST=<pattern>
 " in the environment runs the tests whose names match. gh is test/bin/gh, with
-" canned answers; fugitive is vim-plug's copy, unless $FUGITIVE names another.
+" canned answers. The plugins it needs are vim-plug's copies, unless $FUGITIVE
+" or $VIM_LISTS name others.
 set nocompatible hidden
 let s:root = expand('<sfile>:p:h:h')
 execute 'set runtimepath^=' . fnameescape(s:root)
 let $PATH = s:root . '/test/bin:' . $PATH
-let s:fugitive = fnamemodify(empty($FUGITIVE) ? expand('~/.vim/plugged/vim-fugitive')
-      \ : $FUGITIVE, ':p:s?/$??')
-execute 'set runtimepath^=' . fnameescape(s:fugitive)
 " Only these plugins: Vim's own ones aren't all quiet in silent Ex mode
-execute 'source' fnameescape(s:fugitive . '/plugin/fugitive.vim')
+for [s:var, s:name, s:file] in [['FUGITIVE', 'vim-fugitive', 'fugitive.vim'],
+      \ ['VIM_LISTS', 'vim-lists', 'roumail_lists.vim']]
+  let s:dir = fnamemodify(empty(eval('$' . s:var)) ? expand('~/.vim/plugged/' . s:name)
+        \ : eval('$' . s:var), ':p:s?/$??')
+  execute 'set runtimepath^=' . fnameescape(s:dir)
+  execute 'source' fnameescape(s:dir . '/plugin/' . s:file)
+endfor
 execute 'source' fnameescape(s:root . '/plugin/gh_extras.vim')
 
 let s:tmp = resolve(tempname())
@@ -30,46 +34,6 @@ endfunction
 
 function! s:lines() abort
   return getline(1, '$')
-endfunction
-
-" The list module alone, with a list of words
-function! s:test_list_module() abort
-  let g:words = ['apple', 'banana', 'cherry']
-  call gh_extras#list#open('test://words', {
-        \ 'fetch': {-> copy(g:words)},
-        \ 'heading': {items -> ['Words (' . len(items) . ')']},
-        \ 'rows': {items -> map(copy(items), {_, w -> {'lines': [w], 'item': {'w': w}}})},
-        \ 'id': {item -> item.w}, 'match': {item -> item.w},
-        \ 'keys': [{'key': 'x', 'hint': 'pick', 'call': {-> execute('let g:picked = gh_extras#list#item().w')}},
-        \          {'key': ':Cmd'}]}, {'mine': 1})
-  call assert_equal(1, b:mine)
-  call assert_equal(['Words (3)  x pick  :Cmd  / filter  r refresh  q close',
-        \ 'apple', 'banana', 'cherry'], s:lines())
-  call assert_equal(2, line('.'), 'on the first item')
-  call cursor(1, 1)
-  call assert_equal({}, gh_extras#list#item(), 'the heading has no item')
-  call cursor(3, 1)
-  normal x
-  call assert_equal('banana', g:picked)
-  " Refreshing keeps the cursor on its item, wherever it moves to
-  let g:words = ['zebra', 'apple', 'banana']
-  normal r
-  call assert_equal('banana', getline('.'))
-  " The filter: typed after /, kept with <CR>, in the heading
-  call feedkeys("/an\<CR>", 'x')
-  call assert_equal(['Words (3), 1 matching ''an''  x pick  :Cmd  / filter  r refresh  q close',
-        \ 'banana'], s:lines())
-  call feedkeys("/\<C-u>\<CR>", 'x')
-  call assert_equal(4, line('$'))
-  " <Esc> goes back to the filter it had
-  call feedkeys("/zz\<Esc>", 'x')
-  call assert_equal(4, line('$'))
-  " A fetch failing leaves the list as it was
-  let g:words = v:null
-  normal r
-  call assert_equal(4, line('$'))
-  normal q
-  call assert_false(bufexists('test://words'))
 endfunction
 
 function! s:test_prs() abort
@@ -101,13 +65,13 @@ function! s:test_thread() abort
   call assert_equal(['b.py:3  your turn', '    me (', '      why?'],
         \ [getline(3), getline(4)[:7], getline(5)])
   call assert_equal(3, line('.'))
-  call assert_equal('T1', gh_extras#list#item().id)
+  call assert_equal('T1', roumail_lists#item().id)
   normal =
   call assert_equal(3, line('$'))
   " u shows the resolved thread, in file order
   normal u
   call assert_equal('a.py:1  resolved  (1)  sam: done', getline(2))
-  call assert_equal('T1', gh_extras#list#item().id, 'still on its thread')
+  call assert_equal('T1', roumail_lists#item().id, 'still on its thread')
   " Opening it again, from the file, keeps u
   wincmd p
   Thread 7
@@ -125,8 +89,8 @@ function! s:test_threads() abort
         \ '  b.py:3  your turn  (2)  mira: because'], getline(2, '$'))
   call assert_equal(3, line('.'), 'on the first thread, not its PR')
   call cursor(2, 1)
-  call assert_equal({}, gh_extras#list#item())
-  call assert_equal(7, gh_extras#list#row().pr)
+  call assert_equal({}, roumail_lists#item())
+  call assert_equal(7, roumail_lists#row().pr)
   " :Reply needs a thread under the cursor
   call assert_true(exists(':Reply') == 2)
 endfunction
