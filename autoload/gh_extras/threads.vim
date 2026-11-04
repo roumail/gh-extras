@@ -318,6 +318,9 @@ endfunction
 " :ReplyDraft (a): the reply in a vim-draft draft above the list, starting
 " with text, else with what was left at the :Reply prompt on that thread
 function! gh_extras#threads#reply_draft(text) abort
+  if !gh_extras#requires(':ReplyDraft', 'vim-draft', 'roumail_draft')
+    return
+  endif
   let l:target = s:target()
   if empty(l:target)
     return

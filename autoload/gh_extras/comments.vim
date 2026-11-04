@@ -6,6 +6,11 @@ function! s:fetch_missing(commit, ref) abort
 endfunction
 
 function! gh_extras#comments#submit(number) abort
+  " fugitive-extras' review comments, which are made with vim-draft
+  if !gh_extras#requires(':CommentsSubmit', 'fugitive-extras', 'fugitive_extras')
+        \ || !gh_extras#requires(':CommentsSubmit', 'vim-draft', 'roumail_draft')
+    return
+  endif
   let l:worktree = gh_extras#github_worktree(':CommentsSubmit')
   if empty(l:worktree)
     return

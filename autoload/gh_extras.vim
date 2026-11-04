@@ -4,6 +4,21 @@ function! gh_extras#error(msg) abort
   echohl None
 endfunction
 
+" Whether the plugin with the autoload file autoload/{name}.vim is installed:
+" the commands that use one check for it first
+function! gh_extras#installed(name) abort
+  return !empty(globpath(&runtimepath, 'autoload/' . a:name . '.vim', 1))
+endfunction
+
+" The same, saying what needs the plugin when it isn't installed
+function! gh_extras#requires(what, plugin, name) abort
+  if gh_extras#installed(a:name)
+    return 1
+  endif
+  call gh_extras#error(a:what . ' needs ' . a:plugin . ', which is not installed')
+  return 0
+endfunction
+
 function! gh_extras#gh(worktree, args, ...) abort
   let l:out = call('system', ['cd ' . shellescape(a:worktree) . ' && gh ' . a:args] + a:000)
   if v:shell_error

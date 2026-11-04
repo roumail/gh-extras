@@ -132,15 +132,38 @@ threads and aren't shown. Defined only when `gh` is installed.
 
 ## Install
 
-Requires vim-fugitive, [vim-draft](https://github.com/roumail/vim-draft), the buffer replies are written in, and [vim-lists](https://github.com/roumail/vim-lists), its lists.
-Its commands need `gh`, and are left out without it.
-`:CommentsSubmit` needs fugitive-extras.
+Its commands need [gh](https://cli.github.com), installed and logged in;
+they're defined when it is. The core is gh-extras and two plugins:
+
+- [vim-fugitive](https://github.com/tpope/vim-fugitive): finds the
+  repository and runs git.
+- [vim-lists](https://github.com/roumail/vim-lists): the lists every command
+  opens.
 
 ```vim
 Plug 'tpope/vim-fugitive'
-Plug 'roumail/vim-draft'
 Plug 'roumail/vim-lists'
-Plug 'roumail/vim-review'    " optional, with fugitive-extras: :CommentsSubmit
+Plug 'roumail/gh-extras'
+```
+
+That gives you `:PRs`, `:MergedPRs`, `:Thread`, `:Threads` and `:Reply`.
+
+Each row below adds a module on top of the core, and **Needs** is the whole
+set of plugins it takes besides the core:
+
+| Needs | Module | Adds |
+| --- | --- | --- |
+| [vim-draft](https://github.com/roumail/vim-draft) | Drafts | `:ReplyDraft`, a reply written in a vim-draft draft |
+| [fugitive-extras](https://github.com/roumail/fugitive-extras) + vim-draft | Your review on GitHub | `:CommentsSubmit`, fugitive-extras' review comments as a pending review; checking a PR out from `:PRs` warns of unsaved comments |
+| fugitive-extras + vim-draft + [vim-review](https://github.com/roumail/vim-review) | A saved review on GitHub | `:CommentsLoad` a review saved earlier, then `:CommentsSubmit` it |
+
+All of it:
+
+```vim
+Plug 'tpope/vim-fugitive'
+Plug 'roumail/vim-lists'
+Plug 'roumail/vim-draft'
+Plug 'roumail/vim-review'
 Plug 'roumail/fugitive-extras'
 Plug 'roumail/gh-extras'
 ```
