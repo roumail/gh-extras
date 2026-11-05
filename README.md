@@ -154,14 +154,15 @@ set of plugins it takes besides the core:
 | Needs | Module | Adds |
 | --- | --- | --- |
 | [vim-draft](https://github.com/roumail/vim-draft) | Drafts | `:ReplyDraft`, a reply written in a vim-draft draft |
-| [fugitive-extras](https://github.com/roumail/fugitive-extras) + vim-draft | Your review on GitHub | `:CommentsSubmit`, fugitive-extras' review comments as a pending review; checking a PR out from `:PRs` warns of unsaved comments |
-| fugitive-extras + vim-draft + [vim-review](https://github.com/roumail/vim-review) | A saved review on GitHub | `:CommentsLoad` a review saved earlier, then `:CommentsSubmit` it |
+| [fugitive-extras](https://github.com/roumail/fugitive-extras) + [vim-place](https://github.com/roumail/vim-place) | Your review on GitHub | `:CommentsSubmit`, fugitive-extras' review comments as a pending review; checking a PR out from `:PRs` warns of unsaved comments |
+| fugitive-extras + vim-place + [vim-review](https://github.com/roumail/vim-review) | A saved review on GitHub | `:CommentsLoad` a review saved earlier, then `:CommentsSubmit` it |
 
 All of it:
 
 ```vim
 Plug 'tpope/vim-fugitive'
 Plug 'roumail/vim-lists'
+Plug 'roumail/vim-place'
 Plug 'roumail/vim-draft'
 Plug 'roumail/vim-review'
 Plug 'roumail/fugitive-extras'
